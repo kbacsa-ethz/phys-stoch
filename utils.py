@@ -2,6 +2,19 @@ import torch
 import torch.nn as nn
 
 
+def init_xavier(model, retrain_seed):
+    torch.manual_seed(retrain_seed)
+
+    def init_weights(m):
+        if type(m) == nn.Linear and m.weight.requires_grad and m.bias.requires_grad:
+            g = nn.init.calculate_gain('relu')
+            torch.nn.init.xavier_uniform_(m.weight, gain=g)
+            # torch.nn.init.xavier_normal_(m.weight, gain=g)
+            m.bias.data.fill_(0)
+
+    model.apply(init_weights)
+
+
 # this function takes a torch mini-batch and reverses each sequence
 # (w.r.t. the temporal axis, i.e. axis=1).
 def reverse_sequences(mini_batch, seq_lengths):

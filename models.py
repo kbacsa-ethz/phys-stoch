@@ -129,6 +129,7 @@ class RNNEncoder(nn.Module):
                           batch_first=batch_first, bidirectional=False, num_layers=num_layers, dropout=dropout)
 
         self.h_0 = nn.Parameter(torch.zeros(num_layers, 1, hidden_size))
+        self.hidden_size = hidden_size
         self.seq_len = seq_len
         self.num_layers = num_layers
 
