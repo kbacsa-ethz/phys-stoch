@@ -5,10 +5,10 @@ from torch.utils.data import Dataset
 
 
 class TrajectoryDataset(Dataset):
-    def __init__(self, root_dir, exp_dir, input_dofs, sequence_length):
-        self.states = np.load(os.path.join(root_dir, exp_dir, 'state.npy'))
-        self.observations = np.load(os.path.join(root_dir, exp_dir, 'obs.npy'))
-        self.forces = np.load(os.path.join(root_dir, exp_dir, 'force.npy'))
+    def __init__(self, states, observations, forces, input_dofs, sequence_length):
+        self.states = states
+        self.observations = observations
+        self.forces = forces
 
         self.seq_len = sequence_length
         self.n_exp, self.n_time, self.n_states = self.states.shape
