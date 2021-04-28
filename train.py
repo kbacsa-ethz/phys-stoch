@@ -17,6 +17,10 @@ from pyro.infer import (
 )
 from pyro.optim import ClippedAdam
 
+# visualization
+from tensorboardX import SummaryWriter
+import wandb
+
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder
 from dmm import DMM
@@ -51,6 +55,9 @@ def main(cfg):
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
+    writer = SummaryWriter(logdir=save_path)
+    wandb.init(project="Deep-markov-model", dir=save_path, config=cfg, sync_tensorboard=True)
+
     states = np.load(os.path.join(args.data_dir, args.exp_name, 'state.npy'))
     observations = np.load(os.path.join(args.data_dir, args.exp_name, 'obs.npy'))
     forces = np.load(os.path.join(args.data_dir, args.exp_name, 'force.npy'))
@@ -80,9 +87,10 @@ def main(cfg):
                          non_linearity='relu', batch_first=True, num_layers=args.encoder_layers,
                          dropout=args.encoder_dropout_rate, seq_len=args.seq_len)
 
+    # create model
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
               (args.encoder_layers, args.batch_size, args.encoder_dim))
-
+    wandb.watch(vae, log_freq=args.validation_freq)
     init_xavier(vae, seed)
 
     # setup optimizer
@@ -94,6 +102,7 @@ def main(cfg):
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
 
+    global_step = 0
     for epoch in range(args.num_epochs):
         epoch_loss = 0
         for which_batch, sample in enumerate(tqdm(train_loader)):
@@ -112,9 +121,21 @@ def main(cfg):
                 [mini_batch.size(0), mini_batch.size(1)])  # assumption that all sequences have the same length
 
             # do an actual gradient step
-            epoch_loss += svi.step(mini_batch, mini_batch_mask, annealing_factor)
+            loss = svi.step(mini_batch, mini_batch_mask, annealing_factor)
+            epoch_loss += loss
 
-        print("Mean training loss is {}".format(epoch_loss / len(train_dataset)))
+            # record loss
+            global_step += 1
+            batch_loss = loss / args.batch_size
+            wandb.log({"loss/training_loss": batch_loss, "global_step": global_step})
+            writer.add_scalar('loss/training_loss', batch_loss, global_step)
+            optim_state = svi.optim.get_state()
+            batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
+            wandb.log({"loss/learning_rate": batch_lr, "global_step": global_step})
+            writer.add_scalar('loss/learning_rate', batch_lr, global_step)
+
+        epoch_loss /= len(train_dataset)
+        print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
 
         if not epoch % args.validation_freq:
             vae.eval()
@@ -126,7 +147,11 @@ def main(cfg):
                 # do an actual gradient step
                 val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
 
-            print("Mean validation loss is {}".format(val_epoch_loss / len(val_dataset)))
+            # record loss and save
+            val_epoch_loss /= len(val_dataset)
+            writer.add_scalar('loss/validation_loss', val_epoch_loss, global_step)
+            wandb.log({"loss/validation_loss": val_epoch_loss, "global_step": global_step})
+            print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss / len(val_dataset)))
             save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
             vae.train()
 
@@ -156,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('-bs', '--batch-size', type=int, default=20)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=1000)
-    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.5)
+    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.75)
     parser.add_argument('-rdr', '--encoder-dropout-rate', type=float, default=0.1)
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
