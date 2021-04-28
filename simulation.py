@@ -18,12 +18,11 @@ def vectorfield(w, t, p):
             np.concatenate([-np.linalg.solve(m, k), -np.linalg.solve(m, c)], axis=1),  # movement equations
         ], axis=0)
 
-    f = A @ w + np.linalg.solve(m, ext(t))
+    f = A @ w + np.concatenate([np.zeros(n_dof), np.linalg.solve(m, ext(t))])
     return f
 
 
 def main(cfg):
-
     # parse system parameters
     system_type = cfg['System']['Name']
     m = np.diag(np.array(list(map(float, cfg['System']['M'].split(',')))))
@@ -36,12 +35,12 @@ def main(cfg):
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
     force_sig = float(cfg['Forces']['Shift'])
-    force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split())))
+    force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
     # parse simulation parameters
     n_iter = int(cfg['Simulation']['Iterations'])
-    obs_idx = np.array(list(map(int, cfg['Simulation']['Observations'].split())))
-    obs_noise = np.array(list(map(float, cfg['Simulation']['Noise'].split())))
+    obs_idx = np.array(list(map(int, cfg['Simulation']['Observations'].split(','))))
+    obs_noise = np.array(list(map(float, cfg['Simulation']['Noise'].split(','))))
     abserr = float(cfg['Simulation']['Absolute'])
     relerr = float(cfg['Simulation']['Relative'])
     dt = float(cfg['Simulation']['Delta'])
@@ -50,7 +49,7 @@ def main(cfg):
     save_path = os.path.join('.', 'data', system_type + '_' + force_type)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    tics = np.linspace(0., t_max, num=int(t_max/dt), endpoint=False)
+    tics = np.linspace(0., t_max, num=int(t_max / dt), endpoint=False)
 
     if force_type == 'sinusoidal':
         force_fct = np.sin
@@ -64,9 +63,9 @@ def main(cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.rand(n_dof, 1)
-        qdot0 = np.random.rand(n_dof, 1)
-        w0 = np.concatenate([q0, qdot0], axis=1).squeeze(0)
+        q0 = np.random.rand(n_dof, 1).squeeze(1)
+        qdot0 = np.random.rand(n_dof, 1).squeeze(1)
+        w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
@@ -104,6 +103,6 @@ def main(cfg):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('springmass_sinusoidal.ini')
+    config.read('2springmass_sinusoidal.ini')
 
     main(config)
