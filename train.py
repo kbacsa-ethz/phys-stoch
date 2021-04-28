@@ -40,8 +40,10 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 def main(cfg):
     # add DLSC parameters like seed
     seed = 42
-
     torch.manual_seed(seed)
+
+    # use gpu
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     # load dataset
     run_dir = './experiments'
@@ -90,6 +92,7 @@ def main(cfg):
     # create model
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
               (args.encoder_layers, args.batch_size, args.encoder_dim))
+    vae.to(device)
     wandb.watch(vae, log_freq=args.validation_freq)
     init_xavier(vae, seed)
 
@@ -116,9 +119,10 @@ def main(cfg):
                 # by default the KL annealing factor is unity
                 annealing_factor = 1.0
 
-            mini_batch = sample['obs'].float()
+            mini_batch = sample['obs'].float().to(device)
             mini_batch_mask = torch.ones(
-                [mini_batch.size(0), mini_batch.size(1)])  # assumption that all sequences have the same length
+                [mini_batch.size(0), mini_batch.size(1)]).to(
+                device)  # assumption that all sequences have the same length
 
             # do an actual gradient step
             loss = svi.step(mini_batch, mini_batch_mask, annealing_factor)
@@ -141,8 +145,8 @@ def main(cfg):
             vae.eval()
             val_epoch_loss = 0
             for sample in tqdm(val_loader):
-                mini_batch = sample['obs'].float()
-                mini_batch_mask = torch.ones([mini_batch.size(0), mini_batch.size(1)])
+                mini_batch = sample['obs'].float().to(device)
+                mini_batch_mask = torch.ones([mini_batch.size(0), mini_batch.size(1)]).to(device)
 
                 # do an actual gradient step
                 val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
@@ -151,7 +155,7 @@ def main(cfg):
             val_epoch_loss /= len(val_dataset)
             writer.add_scalar('loss/validation_loss', val_epoch_loss, global_step)
             wandb.log({"loss/validation_loss": val_epoch_loss, "global_step": global_step})
-            print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss / len(val_dataset)))
+            print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
             save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
             vae.train()
 
@@ -162,12 +166,12 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--data-dir', type=str, default='./data')
-    parser.add_argument('--exp-name', type=str, default='springmass_sinusoidal')
-    parser.add_argument('-in', '--input-dim', type=int, default=1)
-    parser.add_argument('-z', '--z-dim', type=int, default=3)
-    parser.add_argument('-e', '--emission-dim', type=int, default=8)
+    parser.add_argument('--exp-name', type=str, default='2springmass_sinusoidal')
+    parser.add_argument('-in', '--input-dim', type=int, default=2)
+    parser.add_argument('-z', '--z-dim', type=int, default=8)
+    parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=1)
-    parser.add_argument('-tr', '--transmission-dim', type=int, default=16)
+    parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=48)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=5000)
@@ -178,7 +182,7 @@ if __name__ == '__main__':
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
     parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
-    parser.add_argument('-bs', '--batch-size', type=int, default=20)
+    parser.add_argument('-bs', '--batch-size', type=int, default=100)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=1000)
     parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.75)
