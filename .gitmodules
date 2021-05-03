@@ -1,0 +1,4 @@
+[submodule "torchdiffeq"]
+	path = torchdiffeq
+	url = https://github.com/FIshikawa/torchdiffeq.git
+	branch = develop
