@@ -22,7 +22,7 @@ from tensorboardX import SummaryWriter
 import wandb
 
 from phys_data import TrajectoryDataset
-from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder
+from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
 from utils import init_xavier
 
@@ -85,9 +85,9 @@ def main(cfg):
     emitter = Emitter(args.input_dim, args.z_dim, args.emission_dim, args.emission_layers)
     transition = GatedTransition(args.z_dim, args.transmission_dim)
     combiner = Combiner(args.z_dim, args.encoder_dim)
-    encoder = ODEEncoder(args.input_dim, args.encoder_dim, 20, 1,
-                         non_linearity='relu', batch_first=True, rnn_layers=args.encoder_layers,
-                         dropout=args.encoder_dropout_rate, seq_len=args.seq_len, dt=0.1, discretization=10)
+    encoder = SymplecticODEEncoder(args.input_dim, args.encoder_dim, 20, 1,
+                                   non_linearity='relu', batch_first=True, rnn_layers=args.encoder_layers,
+                                   dropout=args.encoder_dropout_rate, seq_len=args.seq_len, dt=0.1, discretization=10)
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
