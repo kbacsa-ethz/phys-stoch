@@ -22,7 +22,7 @@ from tensorboardX import SummaryWriter
 import wandb
 
 from phys_data import TrajectoryDataset
-from models import Emitter, GatedTransition, Combiner, RNNEncoder
+from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder
 from dmm import DMM
 from utils import init_xavier
 
@@ -85,9 +85,9 @@ def main(cfg):
     emitter = Emitter(args.input_dim, args.z_dim, args.emission_dim, args.emission_layers)
     transition = GatedTransition(args.z_dim, args.transmission_dim)
     combiner = Combiner(args.z_dim, args.encoder_dim)
-    encoder = RNNEncoder(args.input_dim, args.encoder_dim,
-                         non_linearity='relu', batch_first=True, num_layers=args.encoder_layers,
-                         dropout=args.encoder_dropout_rate, seq_len=args.seq_len)
+    encoder = ODEEncoder(args.input_dim, args.encoder_dim, 20, 1,
+                         non_linearity='relu', batch_first=True, rnn_layers=args.encoder_layers,
+                         dropout=args.encoder_dropout_rate, seq_len=args.seq_len, dt=0.1, discretization=10)
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=1)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=48)
+    parser.add_argument('-enc', '--encoder-dim', type=int, default=8)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=5000)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=5000)
@@ -182,10 +182,10 @@ if __name__ == '__main__':
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
     parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
-    parser.add_argument('-bs', '--batch-size', type=int, default=100)
+    parser.add_argument('-bs', '--batch-size', type=int, default=512)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=1000)
-    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.75)
+    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.5)
     parser.add_argument('-rdr', '--encoder-dropout-rate', type=float, default=0.1)
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)

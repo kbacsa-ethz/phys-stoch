@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import utils
 
+from torchdiffeq import odeint
+
 
 class Emitter(nn.Module):
     """
@@ -145,3 +147,69 @@ class RNNEncoder(nn.Module):
         rnn_output, _ = self.rnn(x_reversed, h_0_contig)
         rnn_output = utils.pad_and_reverse(rnn_output, [self.seq_len] * x.size(0))
         return rnn_output
+
+
+class LatentODEfunc(nn.Module):
+
+    def __init__(self, latent_dim=4, nhidden=20):
+        super(LatentODEfunc, self).__init__()
+        self.elu = nn.ELU(inplace=True)
+        self.fc1 = nn.Linear(latent_dim, nhidden)
+        self.fc2 = nn.Linear(nhidden, nhidden)
+        self.fc3 = nn.Linear(nhidden, latent_dim)
+        self.nfe = 0
+
+    def forward(self, t, x):
+        self.nfe += 1
+        out = self.fc1(x)
+        out = self.elu(out)
+        out = self.fc2(out)
+        out = self.elu(out)
+        out = self.fc3(out)
+        return out
+
+
+class ODEEncoder(nn.Module):
+    """
+    Parameterizes `q(z_t | x_{t:T})`
+    """
+
+    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, seq_len, dt, discretization):
+        super().__init__()
+
+        """
+        modules = list()
+        modules.append(nn.Linear(z_dim, hidden_dim))
+        modules.append(nn.ELU())
+        for _ in range(n_layers):
+            modules.append(nn.Linear(hidden_dim, hidden_dim))
+            modules.append(nn.ELU())
+        modules.append(nn.Linear(hidden_dim, z_dim))
+        """
+        self.latent_func = LatentODEfunc(z_dim, hidden_dim)
+
+        self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
+                          batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
+
+        self.h_0 = nn.Parameter(torch.zeros(rnn_layers, 1, z_dim))
+        self.rnn_layers = rnn_layers
+        self.seq_len = seq_len
+        self.time = torch.arange(0, dt, dt/discretization)
+
+    def forward(self, x):
+        x_reversed = utils.reverse_sequences(x, [self.seq_len] * x.size(0))
+
+        # do sequence packing
+        x_reversed = nn.utils.rnn.pack_padded_sequence(x_reversed,
+                                                       [self.seq_len] * x.size(0),
+                                                       batch_first=True)
+
+        h_0_contig = self.h_0.expand(self.rnn_layers, x.size(0), self.rnn.hidden_size).contiguous()
+        rnn_output, _ = self.rnn(x_reversed, h_0_contig)
+        rnn_output = utils.pad_and_reverse(rnn_output, [self.seq_len] * x.size(0))
+
+        ode_output = torch.zeros_like(rnn_output)
+        ode_output[:, -1, :] = rnn_output[:, -1, :]
+        for t in reversed(range(self.seq_len-1)):
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time)[-1]
+        return ode_output
