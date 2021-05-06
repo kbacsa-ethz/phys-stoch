@@ -92,8 +92,8 @@ def main(cfg):
                                       args.seq_len + 1)
     val_dataset = TrajectoryDataset(states_windowed[val_idx], observations_windowed[val_idx], forces_windowed[val_idx],
                                     obs_idx, args.seq_len + 1)
-    test_dataset = TrajectoryDataset(states[test_idx], observations[test_idx],
-                                     forces[test_idx], obs_idx, args.seq_len + 1)
+    test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
+                                     forces_windowed[test_idx], obs_idx, args.seq_len + 1)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
@@ -192,7 +192,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--data-dir', type=str, default='./data')
-    parser.add_argument('--exp-name', type=str, default='./config/2springmass_sinusoidal')
+    parser.add_argument('--exp-name', type=str, default='2springmass_sinusoidal')
     parser.add_argument('-in', '--input-dim', type=int, default=2)
     parser.add_argument('-z', '--z-dim', type=int, default=8)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)

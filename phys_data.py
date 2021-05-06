@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -6,6 +5,12 @@ from torch.utils.data import Dataset
 
 class TrajectoryDataset(Dataset):
     def __init__(self, states, observations, forces, input_dofs, sequence_length):
+
+        if len(observations) > 3:
+            observations = np.reshape(observations, [-1, *observations.shape[2:]])
+            states = np.reshape(states, [-1, *states.shape[2:]])
+            forces = np.reshape(forces, [-1, *forces.shape[2:]])
+
         self.states = states
         self.observations = observations
         self.forces = forces
