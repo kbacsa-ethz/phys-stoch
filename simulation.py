@@ -109,5 +109,5 @@ def main(cfg):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('.config/2springmass_sinusoidal.ini')
+    config.read('./config/2springmass_sinusoidal.ini')
     main(config)
