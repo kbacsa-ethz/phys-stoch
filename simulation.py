@@ -34,6 +34,7 @@ def main(cfg):
     # TODO Add additional types of forces
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
+    force_freq = float(cfg['Forces']['Frequency'])
     force_sig = float(cfg['Forces']['Shift'])
     force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
@@ -70,7 +71,8 @@ def main(cfg):
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
         for dof in force_dof:
-            force_input[dof, :] = (force_amp * np.random.random()) * force_fct(tics + np.random.random() * force_sig)
+            force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
+                2 * np.pi * force_freq * tics + np.random.random() * force_sig)
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
         p = [m, c, k, fint]
@@ -103,6 +105,5 @@ def main(cfg):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('2springmass_sinusoidal.ini')
-
+    config.read('.config/2springmass_sinusoidal.ini')
     main(config)

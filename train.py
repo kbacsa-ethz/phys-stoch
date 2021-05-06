@@ -58,13 +58,28 @@ def main(cfg):
         json.dump(args.__dict__, f, indent=2)
 
     writer = SummaryWriter(logdir=save_path)
-    wandb.init(project="Deep-markov-model", dir=save_path, config=cfg, sync_tensorboard=True)
+    wandb.init(project="Deep-markov-model", dir=save_path, config=cfg, sync_tensorboard=True,
+               mode='online' if args.wandb else 'disabled')
 
     states = np.load(os.path.join(args.data_dir, args.exp_name, 'state.npy'))
     observations = np.load(os.path.join(args.data_dir, args.exp_name, 'obs.npy'))
     forces = np.load(os.path.join(args.data_dir, args.exp_name, 'force.npy'))
 
     n_exp = states.shape[0]
+    observations_windowed = []
+    states_windowed = []
+    forces_windowed = []
+    for t in range(observations.shape[1] - args.seq_len):
+        qqd_w = observations[:, t:t + args.seq_len + 1]
+        observations_windowed.append(qqd_w[:, None])
+        qqd_w = states[:, t:t + args.seq_len + 1]
+        states_windowed.append(qqd_w[:, None])
+        qqd_w = forces[:, t:t + args.seq_len + 1]
+        forces_windowed.append(qqd_w[:, None])
+
+    observations_windowed = np.concatenate(observations_windowed, axis=1)
+    states_windowed = np.concatenate(states_windowed, axis=1)
+    forces_windowed = np.concatenate(forces_windowed, axis=1)
 
     # 80/10/10 split by default
     indexes = np.arange(n_exp)
@@ -72,22 +87,33 @@ def main(cfg):
     val_idx = indexes[int(0.8 * len(indexes)):int(0.9 * len(indexes))]
     test_idx = indexes[int(0.9 * len(indexes)):]
 
-    train_dataset = TrajectoryDataset(states[train_idx], observations[train_idx], forces[train_idx], obs_idx,
-                                      args.seq_len)
-    val_dataset = TrajectoryDataset(states[val_idx], observations[val_idx], forces[val_idx], obs_idx, args.seq_len)
-    test_dataset = TrajectoryDataset(states[test_idx], observations[test_idx], forces[test_idx], obs_idx, args.seq_len)
+    train_dataset = TrajectoryDataset(states_windowed[train_idx], observations_windowed[train_idx],
+                                      forces_windowed[train_idx], obs_idx,
+                                      args.seq_len + 1)
+    val_dataset = TrajectoryDataset(states_windowed[val_idx], observations_windowed[val_idx], forces_windowed[val_idx],
+                                    obs_idx, args.seq_len + 1)
+    test_dataset = TrajectoryDataset(states[test_idx], observations[test_idx],
+                                     forces[test_idx], obs_idx, args.seq_len + 1)
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+    # free memory to avoid crash
+    states = None
+    observations = None
+    forces = None
+    states_windowed = None
+    observations_windowed = None
+    forces_windowed = None
 
     # modules
     emitter = Emitter(args.input_dim, args.z_dim, args.emission_dim, args.emission_layers)
     transition = GatedTransition(args.z_dim, args.transmission_dim)
     combiner = Combiner(args.z_dim, args.encoder_dim)
-    encoder = SymplecticODEEncoder(args.input_dim, args.encoder_dim, 20, 1,
+    encoder = SymplecticODEEncoder(args.input_dim, args.encoder_dim, 60, 1,
                                    non_linearity='relu', batch_first=True, rnn_layers=args.encoder_layers,
-                                   dropout=args.encoder_dropout_rate, seq_len=args.seq_len, dt=0.1, discretization=10)
+                                   dropout=args.encoder_dropout_rate, seq_len=args.seq_len + 1, dt=0.1, discretization=10)
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
@@ -166,31 +192,32 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--data-dir', type=str, default='./data')
-    parser.add_argument('--exp-name', type=str, default='2springmass_sinusoidal')
+    parser.add_argument('--exp-name', type=str, default='./config/2springmass_sinusoidal')
     parser.add_argument('-in', '--input-dim', type=int, default=2)
     parser.add_argument('-z', '--z-dim', type=int, default=8)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=1)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=8)
-    parser.add_argument('-nenc', '--encoder-layers', type=int, default=3)
-    parser.add_argument('-n', '--num-epochs', type=int, default=5000)
-    parser.add_argument('-te', '--tuning-epochs', type=int, default=5000)
+    parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
+    parser.add_argument('-n', '--num-epochs', type=int, default=10)
+    parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
     parser.add_argument('-lr', '--learning-rate', type=float, default=1e-3)
     parser.add_argument('-b1', '--beta1', type=float, default=0.96)
     parser.add_argument('-b2', '--beta2', type=float, default=0.999)
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
     parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
-    parser.add_argument('-bs', '--batch-size', type=int, default=512)
+    parser.add_argument('-bs', '--batch-size', type=int, default=256)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
-    parser.add_argument('-ae', '--annealing-epochs', type=int, default=1000)
+    parser.add_argument('-ae', '--annealing-epochs', type=int, default=2)
     parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.5)
     parser.add_argument('-rdr', '--encoder-dropout-rate', type=float, default=0.1)
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
-    parser.add_argument('-vf', '--validation-freq', type=int, default=100)
+    parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('--wandb', action='store_true')
     args = parser.parse_args()
 
     main(args)
