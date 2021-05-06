@@ -216,11 +216,14 @@ class PotentialODEfunc(nn.Module):
         self.nfe = 0
 
     def forward(self, t, x):
-        self.nfe += 1
-        out = self.fc1(x)
-        out = self.tanh(out)
-        out = self.fc2(out)
-        out = utils.partial_grad(out, x, create_graph=False)
+        with torch.enable_grad():
+            one = torch.tensor(1, dtype=torch.float32, device=x.device, requires_grad=True)
+            x *= one
+            self.nfe += 1
+            out = self.fc1(x)
+            out = self.tanh(out)
+            out = self.fc2(out)
+            out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
         return out
 
 
@@ -249,7 +252,7 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, seq_len, dt, discretization):
         super().__init__()
 
-        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim)
+        self.latent_func = PotentialODEfunc(z_dim, hidden_dim)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
