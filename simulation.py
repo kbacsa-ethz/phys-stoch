@@ -39,6 +39,7 @@ def main(cfg):
     force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
     # parse simulation parameters
+    seed = int(cfg['Simulation']['Seed'])
     n_iter = int(cfg['Simulation']['Iterations'])
     obs_idx = np.array(list(map(int, cfg['Simulation']['Observations'].split(','))))
     obs_noise = np.array(list(map(float, cfg['Simulation']['Noise'].split(','))))
@@ -46,6 +47,9 @@ def main(cfg):
     relerr = float(cfg['Simulation']['Relative'])
     dt = float(cfg['Simulation']['Delta'])
     t_max = float(cfg['Simulation']['Time'])
+
+    # fix random seed for reproducibility
+    np.random.seed(seed)
 
     save_path = os.path.join('.', 'data', system_type + '_' + force_type)
     Path(save_path).mkdir(parents=True, exist_ok=True)
