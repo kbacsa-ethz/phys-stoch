@@ -200,7 +200,8 @@ def main(cfg):
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
 
                 # Zhilu plot
-                sample = np.expand_dims(observations[0], axis=0)
+                n_re = 0
+                sample = np.expand_dims(observations[n_re], axis=0)
                 sample = torch.from_numpy(sample[:, :cfg.seq_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
@@ -219,7 +220,6 @@ def main(cfg):
                 ], axis=-1
                 )
 
-                n_re = 0
                 n_len = cfg.seq_len
                 Ylabels = ["u_1", "u_2", "f_1", "f_2", "u_1_dot", "u_2_dot", "f_1_dot", "f_2_dot"]
 
