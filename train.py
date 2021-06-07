@@ -65,10 +65,10 @@ def main(cfg):
     experiment.log_parameters(hyper_params)
 
     # use gpu
-    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
 
     # load dataset
-    run_dir = './experiments'
+    run_dir = os.path.join(cfg.root_path, 'experiments')
     obs_idx = [0]
 
     # create experiment directory and save config
@@ -77,22 +77,22 @@ def main(cfg):
     save_path = os.path.join(run_dir, cfg.exp_name, dt_string)
     Path(save_path).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
+        json.dump(cfg.__dict__, f, indent=2)
 
-    states = np.load(os.path.join(args.data_dir, args.exp_name, 'state.npy'))
-    observations = np.load(os.path.join(args.data_dir, args.exp_name, 'obs.npy'))
-    forces = np.load(os.path.join(args.data_dir, args.exp_name, 'force.npy'))
+    states = np.load(os.path.join(cfg.root_path, cfg.data_dir, cfg.exp_name, 'state.npy'))
+    observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, cfg.exp_name, 'obs.npy'))
+    forces = np.load(os.path.join(cfg.data_dir, cfg.exp_name, 'force.npy'))
 
     n_exp = states.shape[0]
     observations_windowed = []
     states_windowed = []
     forces_windowed = []
-    for t in range(observations.shape[1] - args.seq_len):
-        qqd_w = observations[:, t:t + args.seq_len + 1]
+    for t in range(observations.shape[1] - cfg.seq_len):
+        qqd_w = observations[:, t:t + cfg.seq_len + 1]
         observations_windowed.append(qqd_w[:, None])
-        qqd_w = states[:, t:t + args.seq_len + 1]
+        qqd_w = states[:, t:t + cfg.seq_len + 1]
         states_windowed.append(qqd_w[:, None])
-        qqd_w = forces[:, t:t + args.seq_len + 1]
+        qqd_w = forces[:, t:t + cfg.seq_len + 1]
         forces_windowed.append(qqd_w[:, None])
 
     observations_windowed = np.concatenate(observations_windowed, axis=1)
@@ -107,15 +107,15 @@ def main(cfg):
 
     train_dataset = TrajectoryDataset(states_windowed[train_idx], observations_windowed[train_idx],
                                       forces_windowed[train_idx], obs_idx,
-                                      args.seq_len + 1)
+                                      cfg.seq_len + 1)
     val_dataset = TrajectoryDataset(states_windowed[val_idx], observations_windowed[val_idx], forces_windowed[val_idx],
-                                    obs_idx, args.seq_len + 1)
+                                    obs_idx, cfg.seq_len + 1)
     test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
-                                     forces_windowed[test_idx], obs_idx, args.seq_len + 1)
+                                     forces_windowed[test_idx], obs_idx, cfg.seq_len + 1)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
     #states = None
@@ -126,39 +126,39 @@ def main(cfg):
     forces_windowed = None
 
     # modules
-    emitter = Emitter(args.input_dim, args.z_dim, args.emission_dim, args.emission_layers)
-    transition = GatedTransition(args.z_dim, args.transmission_dim)
-    combiner = Combiner(args.z_dim, args.encoder_dim)
-    encoder = SymplecticODEEncoder(args.input_dim, args.encoder_dim, 60, 1,
-                                   non_linearity='relu', batch_first=True, rnn_layers=args.encoder_layers,
-                                   dropout=args.encoder_dropout_rate, seq_len=args.seq_len + 1, dt=0.1, discretization=10)
+    emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
+    transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
+    combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
+    encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, 60, 1,
+                                   non_linearity='relu', batch_first=True, rnn_layers=cfg.encoder_layers,
+                                   dropout=cfg.encoder_dropout_rate, seq_len=cfg.seq_len + 1, dt=0.1, discretization=10)
 
     # create model
-    vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
-              (args.encoder_layers, args.batch_size, args.encoder_dim))
+    vae = DMM(emitter, transition, combiner, encoder, cfg.z_dim,
+              (cfg.encoder_layers, cfg.batch_size, cfg.encoder_dim))
     vae.to(device)
     init_xavier(vae, seed)
 
     # setup optimizer
-    adam_params = {"lr": args.learning_rate,
-                   "betas": (args.beta1, args.beta2),
-                   "clip_norm": args.clip_norm, "lrd": args.lr_decay,
-                   "weight_decay": args.weight_decay}
+    adam_params = {"lr": cfg.learning_rate,
+                   "betas": (cfg.beta1, cfg.beta2),
+                   "clip_norm": cfg.clip_norm, "lrd": cfg.lr_decay,
+                   "weight_decay": cfg.weight_decay}
     adam = ClippedAdam(adam_params)
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
 
     with experiment.train():
         global_step = 0
-        for epoch in range(args.num_epochs):
+        for epoch in range(cfg.num_epochs):
             epoch_loss = 0
             for which_batch, sample in enumerate(tqdm(train_loader)):
-                if args.annealing_epochs > 0 and epoch < args.annealing_epochs:
+                if cfg.annealing_epochs > 0 and epoch < cfg.annealing_epochs:
                     # compute the KL annealing factor approriate for the current mini-batch in the current epoch
-                    min_af = args.minimum_annealing_factor
+                    min_af = cfg.minimum_annealing_factor
                     annealing_factor = min_af + (1.0 - min_af) * \
-                                       (float(which_batch + epoch * len(train_dataset) // args.batch_size + 1) /
-                                        float(args.annealing_epochs * len(train_dataset) // args.batch_size))
+                                       (float(which_batch + epoch * len(train_dataset) // cfg.batch_size + 1) /
+                                        float(cfg.annealing_epochs * len(train_dataset) // cfg.batch_size))
                 else:
                     # by default the KL annealing factor is unity
                     annealing_factor = 1.0
@@ -174,7 +174,7 @@ def main(cfg):
 
                 # record loss
                 global_step += 1
-                batch_loss = loss / args.batch_size
+                batch_loss = loss / cfg.batch_size
                 experiment.log_metric("training_loss", batch_loss, step=global_step)
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
@@ -183,7 +183,7 @@ def main(cfg):
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
 
-            if not epoch % args.validation_freq:
+            if not epoch % cfg.validation_freq:
                 vae.eval()
                 val_epoch_loss = 0
                 for sample in tqdm(val_loader):
@@ -225,8 +225,8 @@ def main(cfg):
 
                 fig1 = plt.figure(figsize=(16, 7))
                 plt.ioff()
-                for i in range(args.z_dim):
-                    ax = plt.subplot(cfg.z_dim // 2, args.z_dim // (cfg.z_dim // 2), i + 1)
+                for i in range(cfg.z_dim):
+                    ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
                     plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
@@ -250,7 +250,8 @@ def main(cfg):
 if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
-    parser.add_argument('--data-dir', type=str, default='./data')
+    parser.add_argument('--root-path', type=str, default='.')
+    parser.add_argument('--data-dir', type=str, default='data')
     parser.add_argument('--exp-name', type=str, default='2springmass_sinusoidal')
     parser.add_argument('-in', '--input-dim', type=int, default=2)
     parser.add_argument('-z', '--z-dim', type=int, default=8)
