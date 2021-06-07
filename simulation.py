@@ -1,3 +1,4 @@
+import argparse
 import configparser
 import os
 from pathlib import Path
@@ -22,7 +23,7 @@ def vectorfield(w, t, p):
     return f
 
 
-def main(cfg):
+def main(ag, cfg):
     # parse system parameters
     system_type = cfg['System']['Name']
     m = np.diag(np.array(list(map(float, cfg['System']['M'].split(',')))))
@@ -51,7 +52,7 @@ def main(cfg):
     # fix random seed for reproducibility
     np.random.seed(seed)
 
-    save_path = os.path.join('.', 'data', system_type + '_' + force_type)
+    save_path = os.path.join(ag.root_path, 'data', system_type + '_' + force_type)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
     tics = np.linspace(0., t_max, num=int(t_max / dt), endpoint=False)
@@ -68,8 +69,8 @@ def main(cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.rand(n_dof, 1).squeeze(1)
-        qdot0 = np.random.rand(n_dof, 1).squeeze(1)
+        q0 = np.zeros([n_dof, 1]).squeeze(1)
+        qdot0 = np.zeros([n_dof, 1]).squeeze(1)
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -108,6 +109,10 @@ def main(cfg):
 
 
 if __name__ == '__main__':
+    # parse config
+    parser = argparse.ArgumentParser(description="parse args")
+    parser.add_argument('--root-path', type=str, default='.')
+    args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read('./config/2springmass_sinusoidal.ini')
-    main(config)
+    config.read(os.path.join(args.root_path, 'config/2springmass_sinusoidal.ini'))
+    main(args, config)
