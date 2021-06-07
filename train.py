@@ -1,3 +1,5 @@
+from comet_ml import Experiment
+
 import os
 import argparse
 import json
@@ -12,15 +14,11 @@ from pyro.infer import (
     JitTrace_ELBO,
     Trace_ELBO,
     TraceEnum_ELBO,
-    TraceTMC_ELBO,
     config_enumerate,
 )
 from pyro.optim import ClippedAdam
 
 # visualization
-from tensorboardX import SummaryWriter
-import wandb
-
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
@@ -42,6 +40,24 @@ def main(cfg):
     seed = 42
     torch.manual_seed(seed)
 
+    hyper_params = {
+        "seed": seed,
+        "sequence_length": cfg.seq_len,
+        "input_dim": cfg.input_dim,
+        "z_dim": cfg.z_dim,
+        "emission_dim": cfg.emission_dim,
+        "emission_layers": cfg.emission_layers,
+        "transmission_dim": cfg.transmission_dim,
+        "encoder_dim": cfg.encoder_dim,
+        "encoder_layers": cfg.encoder_layers,
+        "batch_size": cfg.batch_size,
+        "num_epochs": cfg.num_epochs,
+        "learning_rate": cfg.learning_rate
+    }
+
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8")
+    experiment.log_parameters(hyper_params)
+
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
@@ -56,10 +72,6 @@ def main(cfg):
     Path(save_path).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-
-    writer = SummaryWriter(logdir=save_path)
-    wandb.init(project="Deep-markov-model", dir=save_path, config=cfg, sync_tensorboard=True,
-               mode='online' if args.wandb else 'disabled')
 
     states = np.load(os.path.join(args.data_dir, args.exp_name, 'state.npy'))
     observations = np.load(os.path.join(args.data_dir, args.exp_name, 'obs.npy'))
@@ -119,7 +131,6 @@ def main(cfg):
     vae = DMM(emitter, transition, combiner, encoder, args.z_dim,
               (args.encoder_layers, args.batch_size, args.encoder_dim))
     vae.to(device)
-    wandb.watch(vae, log_freq=args.validation_freq)
     init_xavier(vae, seed)
 
     # setup optimizer
@@ -131,59 +142,57 @@ def main(cfg):
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
 
-    global_step = 0
-    for epoch in range(args.num_epochs):
-        epoch_loss = 0
-        for which_batch, sample in enumerate(tqdm(train_loader)):
-            if args.annealing_epochs > 0 and epoch < args.annealing_epochs:
-                # compute the KL annealing factor approriate for the current mini-batch in the current epoch
-                min_af = args.minimum_annealing_factor
-                annealing_factor = min_af + (1.0 - min_af) * \
-                                   (float(which_batch + epoch * len(train_dataset) // args.batch_size + 1) /
-                                    float(args.annealing_epochs * len(train_dataset) // args.batch_size))
-            else:
-                # by default the KL annealing factor is unity
-                annealing_factor = 1.0
+    with experiment.train():
+        global_step = 0
+        for epoch in range(args.num_epochs):
+            epoch_loss = 0
+            for which_batch, sample in enumerate(tqdm(train_loader)):
+                if args.annealing_epochs > 0 and epoch < args.annealing_epochs:
+                    # compute the KL annealing factor approriate for the current mini-batch in the current epoch
+                    min_af = args.minimum_annealing_factor
+                    annealing_factor = min_af + (1.0 - min_af) * \
+                                       (float(which_batch + epoch * len(train_dataset) // args.batch_size + 1) /
+                                        float(args.annealing_epochs * len(train_dataset) // args.batch_size))
+                else:
+                    # by default the KL annealing factor is unity
+                    annealing_factor = 1.0
 
-            mini_batch = sample['obs'].float().to(device)
-            mini_batch_mask = torch.ones(
-                [mini_batch.size(0), mini_batch.size(1)]).to(
-                device)  # assumption that all sequences have the same length
-
-            # do an actual gradient step
-            loss = svi.step(mini_batch, mini_batch_mask, annealing_factor)
-            epoch_loss += loss
-
-            # record loss
-            global_step += 1
-            batch_loss = loss / args.batch_size
-            wandb.log({"loss/training_loss": batch_loss, "global_step": global_step})
-            writer.add_scalar('loss/training_loss', batch_loss, global_step)
-            optim_state = svi.optim.get_state()
-            batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
-            wandb.log({"loss/learning_rate": batch_lr, "global_step": global_step})
-            writer.add_scalar('loss/learning_rate', batch_lr, global_step)
-
-        epoch_loss /= len(train_dataset)
-        print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
-
-        if not epoch % args.validation_freq:
-            vae.eval()
-            val_epoch_loss = 0
-            for sample in tqdm(val_loader):
                 mini_batch = sample['obs'].float().to(device)
-                mini_batch_mask = torch.ones([mini_batch.size(0), mini_batch.size(1)]).to(device)
+                mini_batch_mask = torch.ones(
+                    [mini_batch.size(0), mini_batch.size(1)]).to(
+                    device)  # assumption that all sequences have the same length
 
                 # do an actual gradient step
-                val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
+                loss = svi.step(mini_batch, mini_batch_mask, annealing_factor)
+                epoch_loss += loss
 
-            # record loss and save
-            val_epoch_loss /= len(val_dataset)
-            writer.add_scalar('loss/validation_loss', val_epoch_loss, global_step)
-            wandb.log({"loss/validation_loss": val_epoch_loss, "global_step": global_step})
-            print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
-            save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
-            vae.train()
+                # record loss
+                global_step += 1
+                batch_loss = loss / args.batch_size
+                experiment.log_metric("training_loss", batch_loss, step=global_step)
+                optim_state = svi.optim.get_state()
+                batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
+                experiment.log_metric("learning_rate", batch_lr, step=global_step)
+
+            epoch_loss /= len(train_dataset)
+            print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
+
+            if not epoch % args.validation_freq:
+                vae.eval()
+                val_epoch_loss = 0
+                for sample in tqdm(val_loader):
+                    mini_batch = sample['obs'].float().to(device)
+                    mini_batch_mask = torch.ones([mini_batch.size(0), mini_batch.size(1)]).to(device)
+
+                    # do an actual gradient step
+                    val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
+
+                # record loss and save
+                val_epoch_loss /= len(val_dataset)
+                experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
+                print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
+                save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
+                vae.train()
 
     return 0
 
@@ -217,7 +226,6 @@ if __name__ == '__main__':
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--cuda', action='store_true')
-    parser.add_argument('--wandb', action='store_true')
     args = parser.parse_args()
 
     main(args)
