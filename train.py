@@ -24,6 +24,12 @@ from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, S
 from dmm import DMM
 from utils import init_xavier
 
+import matplotlib as mpl
+mpl.use('TkAgg')
+# mpl.use('Agg') if you are on a headless machine
+
+import matplotlib.pyplot as plt
+
 
 # saves the model and optimizer states to disk
 def save_checkpoint(model, optim, epoch, loss, save_path):
@@ -112,9 +118,9 @@ def main(cfg):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     # free memory to avoid crash
-    states = None
-    observations = None
-    forces = None
+    #states = None
+    #observations = None
+    #forces = None
     states_windowed = None
     observations_windowed = None
     forces_windowed = None
@@ -192,6 +198,50 @@ def main(cfg):
                 experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
                 print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
+
+                # Zhilu plot
+                sample = np.expand_dims(observations[0], axis=0)
+                sample = torch.from_numpy(sample[:, :cfg.seq_len + 1, :]).float()
+                sample = sample.to(device)
+                Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
+
+                # TODO make this for any number of states
+                # TODO get force derivatives
+                z_true = np.stack([
+                    states[..., 0],
+                    states[..., 1],
+                    forces[..., 0],
+                    forces[..., 1],
+                    states[..., 2],
+                    states[..., 3],
+                    np.zeros_like(states[..., 0]),
+                    np.zeros_like(states[..., 0]),
+                ], axis=-1
+                )
+
+                n_re = 0
+                n_len = cfg.seq_len
+                Ylabels = ["u_1", "u_2", "f_1", "f_2", "u_1_dot", "u_2_dot", "f_1_dot", "f_2_dot"]
+
+                fig1 = plt.figure(figsize=(16, 7))
+                plt.ioff()
+                for i in range(args.z_dim):
+                    ax = plt.subplot(cfg.z_dim // 2, args.z_dim // (cfg.z_dim // 2), i + 1)
+                    plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
+                    plt.plot(Z[n_re, :, i].data, label="inference")
+                    plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+                    lower_bound = Z_gen[n_re, :, i].data - Z_gen_scale[n_re, :, i].data
+                    upper_bound = Z_gen[n_re, :, i].data + Z_gen_scale[n_re, :, i].data
+                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
+                                    facecolor='yellow', alpha=0.5,
+                                    label='1 sigma range')
+                    plt.xlabel("$k$")
+                    plt.ylabel(Ylabels[i])
+
+                fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
+                plt.tight_layout()
+                experiment.log_figure(figure=fig1)
+
                 vae.train()
 
     return 0
