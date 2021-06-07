@@ -141,3 +141,31 @@ class DMM(nn.Module):
                 # the latent sampled at this time step will be conditioned upon in the next time step
                 # so keep track of it
                 z_prev = z_t
+
+    # define a helper function for reconstructing images
+    def reconstruction(self, x):
+        # infer all x_t from ODE-RNN
+        encoder_output = self.encoder(x)
+        z_prev = torch.zeros_like(encoder_output)
+        # step by step trans in the other direction
+
+        T_max = x.size(1)
+
+        Z = torch.zeros([1, T_max-1, 8])
+        Z_gen = torch.zeros([1, T_max-1, 8])
+        Z_gen_scale = torch.zeros([1, T_max-1, 8])
+        Obs = torch.zeros([1, T_max-1, 2])
+        Obs_scale = torch.zeros([1, T_max-1, 2])
+
+        for t in range(T_max):
+            z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
+            z_gen_loc, z_gen_scale = self.trans(z_loc)
+            obs_loc, obs_scale = self.emitter(z_gen_loc)
+            z_prev = z_loc
+            Z[:, t - 1, :] = z_loc[:, 0, :]
+            Z_gen[:, t - 1, :] = z_gen_loc[:, 0, :]
+            Obs[:, t - 1, :] = obs_loc[:, 0, :]
+            Obs_scale[:, t - 1, :] = obs_scale[:, 0, :]
+            Z_gen_scale[:, t - 1, :] = z_gen_scale[:, 0, :]
+
+        return Z, Z_gen, Z_gen_scale, Obs, Obs_scale
