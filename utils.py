@@ -2,6 +2,19 @@ import torch
 import torch.nn as nn
 
 
+def data_path_from_config(cfg):
+    data_path = '/'.join([
+        cfg['System']['M'].replace('.', '-').replace(',', '_'),
+        cfg['System']['C'].replace('.', '-').replace(',', '_'),
+        cfg['System']['K'].replace('.', '-').replace(',', '_'),
+        cfg['Forces']['Type'].replace('.', '-').replace(',', '_'),
+        cfg['Forces']['Inputs'].replace('.', '-').replace(',', '_'),
+        cfg['Simulation']['Noise'].replace('.', '-').replace(',', '_'),
+    ]
+    )
+    return data_path
+
+
 def init_xavier(model, retrain_seed):
     torch.manual_seed(retrain_seed)
 

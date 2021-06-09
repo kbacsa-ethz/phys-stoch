@@ -8,6 +8,8 @@ from tqdm import tqdm
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
+from utils import data_path_from_config
+
 
 def vectorfield(w, t, p):
     m, c, k, ext = p
@@ -52,12 +54,15 @@ def main(ag, cfg):
     # fix random seed for reproducibility
     np.random.seed(seed)
 
-    save_path = os.path.join(ag.root_path, 'data', system_type + '_' + force_type)
+    experiment_tree = data_path_from_config(cfg)
+    save_path = os.path.join(ag.root_path, 'data', experiment_tree)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
     tics = np.linspace(0., t_max, num=int(t_max / dt), endpoint=False)
 
-    if force_type == 'sinusoidal':
+    if force_type == 'free':
+        force_fct = lambda x: 0
+    elif force_type == 'sinusoidal':
         force_fct = np.sin
     else:
         raise NotImplementedError()
@@ -69,8 +74,8 @@ def main(ag, cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.zeros([n_dof, 1]).squeeze(1)
-        qdot0 = np.zeros([n_dof, 1]).squeeze(1)
+        q0 = np.random.random([n_dof, 1]).squeeze(1)
+        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -114,5 +119,5 @@ if __name__ == '__main__':
     parser.add_argument('--root-path', type=str, default='.')
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, 'config/2springmass_sinusoidal.ini'))
+    config.read(os.path.join(args.root_path, 'config/2springmass_free.ini'))
     main(args, config)

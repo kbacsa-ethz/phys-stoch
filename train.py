@@ -2,6 +2,7 @@ from comet_ml import Experiment
 
 import os
 import argparse
+import configparser
 import json
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +23,7 @@ from pyro.optim import ClippedAdam
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
-from utils import init_xavier
+from utils import init_xavier, data_path_from_config
 
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -71,17 +72,22 @@ def main(cfg):
     run_dir = os.path.join(cfg.root_path, 'experiments')
     obs_idx = [0]
 
+    config = configparser.ConfigParser()
+    config.read(os.path.join(args.root_path, cfg.config))
+
+    exp_name = data_path_from_config(config)
+
     # create experiment directory and save config
     now = datetime.now()
     dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
-    save_path = os.path.join(run_dir, cfg.exp_name, dt_string)
+    save_path = os.path.join(run_dir, exp_name, dt_string)
     Path(save_path).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
         json.dump(cfg.__dict__, f, indent=2)
 
-    states = np.load(os.path.join(cfg.root_path, cfg.data_dir, cfg.exp_name, 'state.npy'))
-    observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, cfg.exp_name, 'obs.npy'))
-    forces = np.load(os.path.join(cfg.data_dir, cfg.exp_name, 'force.npy'))
+    states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
+    observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
+    forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
     n_exp = states.shape[0]
     observations_windowed = []
@@ -252,9 +258,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--exp-name', type=str, default='2springmass_sinusoidal')
-    parser.add_argument('-in', '--input-dim', type=int, default=2)
-    parser.add_argument('-z', '--z-dim', type=int, default=8)
+    parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
+    parser.add_argument('-in', '--input-dim', type=int, default=4)
+    parser.add_argument('-z', '--z-dim', type=int, default=4)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=1)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
