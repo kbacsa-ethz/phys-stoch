@@ -151,13 +151,13 @@ class DMM(nn.Module):
 
         T_max = x.size(1)
 
-        Z = torch.zeros([1, T_max-1, 8])
-        Z_gen = torch.zeros([1, T_max-1, 8])
-        Z_gen_scale = torch.zeros([1, T_max-1, 8])
-        Obs = torch.zeros([1, T_max-1, 2])
-        Obs_scale = torch.zeros([1, T_max-1, 2])
+        Z = torch.zeros([1, T_max-1, 4])
+        Z_gen = torch.zeros([1, T_max-1, 4])
+        Z_gen_scale = torch.zeros([1, T_max-1, 4])
+        Obs = torch.zeros([1, T_max-1, 4])
+        Obs_scale = torch.zeros([1, T_max-1, 4])
 
-        for t in range(T_max):
+        for t in range(1, T_max):
             z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
             z_gen_loc, z_gen_scale = self.trans(z_loc)
             obs_loc, obs_scale = self.emitter(z_gen_loc)

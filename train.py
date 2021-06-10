@@ -186,6 +186,7 @@ def main(cfg):
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
+                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -199,6 +200,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
+                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -215,20 +217,14 @@ def main(cfg):
 
                 # TODO make this for any number of states
                 # TODO get force derivatives
-                z_true = np.stack([
-                    states[..., 0],
-                    states[..., 1],
-                    forces[..., 0],
-                    forces[..., 1],
-                    states[..., 2],
-                    states[..., 3],
-                    np.zeros_like(states[..., 0]),
-                    np.zeros_like(states[..., 0]),
-                ], axis=-1
-                )
+
+                # autonomous case
+                z_true = states[..., :cfg.z_dim]
 
                 n_len = cfg.seq_len
-                Ylabels = ["u_1", "u_2", "f_1", "f_2", "u_1_dot", "u_2_dot", "f_1_dot", "f_2_dot"]
+                #Ylabels = ["u_1", "u_2", "f_1", "f_2", "u_1_dot", "u_2_dot", "f_1_dot", "f_2_dot"]
+
+                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in range(cfg.z_dim // 2)]
 
                 fig1 = plt.figure(figsize=(16, 7))
                 plt.ioff()
@@ -247,6 +243,7 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
+                plt.show()
                 experiment.log_figure(figure=fig1)
 
                 vae.train()
@@ -265,7 +262,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=1)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=8)
+    parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
