@@ -26,6 +26,7 @@ from dmm import DMM
 from utils import init_xavier, data_path_from_config
 
 import matplotlib as mpl
+
 mpl.use('TkAgg')
 # mpl.use('Agg') if you are on a headless machine
 
@@ -124,9 +125,9 @@ def main(cfg):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
-    #states = None
-    #observations = None
-    #forces = None
+    # states = None
+    # observations = None
+    # forces = None
     states_windowed = None
     observations_windowed = None
     forces_windowed = None
