@@ -208,8 +208,9 @@ def main(cfg):
 
                 # Zhilu plot
                 n_re = 0
+                n_len = cfg.seq_len*10
                 sample = np.expand_dims(observations[n_re], axis=0)
-                sample = torch.from_numpy(sample[:, :cfg.seq_len + 1, :]).float()
+                sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
@@ -218,10 +219,6 @@ def main(cfg):
 
                 # autonomous case
                 z_true = states[..., :cfg.z_dim]
-
-                n_len = cfg.seq_len
-                #Ylabels = ["u_1", "u_2", "f_1", "f_2", "u_1_dot", "u_2_dot", "f_1_dot", "f_2_dot"]
-
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in range(cfg.z_dim // 2)]
 
                 fig1 = plt.figure(figsize=(16, 7))
