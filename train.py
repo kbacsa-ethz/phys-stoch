@@ -186,7 +186,6 @@ def main(cfg):
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
-                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -200,7 +199,6 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
