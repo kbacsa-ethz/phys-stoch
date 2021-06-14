@@ -101,7 +101,7 @@ class DMM(nn.Module):
 
         # push the observed x's through the rnn;
         # encoder_output contains the hidden state at each time step
-        encoder_output = self.encoder(mini_batch)
+        encoder_output = self.encoder(mini_batch, T_max)
 
         # set z_prev = z_q_0 to setup the recursive conditioning in q(z_t |...)
         z_prev = self.z_q_0.expand(mini_batch.size(0), self.z_q_0.size(0))
@@ -145,11 +145,11 @@ class DMM(nn.Module):
     # define a helper function for reconstructing images
     def reconstruction(self, x):
         # infer all x_t from ODE-RNN
-        encoder_output = self.encoder(x)
+        T_max = x.size(1)
+
+        encoder_output = self.encoder(x, T_max)
         z_prev = torch.zeros_like(encoder_output)
         # step by step trans in the other direction
-
-        T_max = x.size(1)
 
         Z = torch.zeros([1, T_max-1, 4])
         Z_gen = torch.zeros([1, T_max-1, 4])

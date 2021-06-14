@@ -186,6 +186,7 @@ def main(cfg):
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
+                #break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -199,6 +200,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
+                    #break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -228,17 +230,19 @@ def main(cfg):
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
                     plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+                    plt.plot(observations[n_re, :n_len, i], label="observations")
                     lower_bound = Z_gen[n_re, :, i].data - Z_gen_scale[n_re, :, i].data
                     upper_bound = Z_gen[n_re, :, i].data + Z_gen_scale[n_re, :, i].data
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                     facecolor='yellow', alpha=0.5,
                                     label='1 sigma range')
+                    plt.legend()
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                plt.show()
+                #plt.show()
                 experiment.log_figure(figure=fig1)
 
                 vae.train()

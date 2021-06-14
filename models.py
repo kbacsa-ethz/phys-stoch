@@ -259,23 +259,23 @@ class SymplecticODEEncoder(nn.Module):
 
         self.h_0 = nn.Parameter(torch.zeros(rnn_layers, 1, z_dim))
         self.rnn_layers = rnn_layers
-        self.seq_len = seq_len
+        #self.seq_len = seq_len
         self.time = torch.arange(0, dt, dt/discretization)
 
-    def forward(self, x):
-        x_reversed = utils.reverse_sequences(x, [self.seq_len] * x.size(0))
+    def forward(self, x, seq_len):
+        x_reversed = utils.reverse_sequences(x, [seq_len] * x.size(0))
 
         # do sequence packing
         x_reversed = nn.utils.rnn.pack_padded_sequence(x_reversed,
-                                                       [self.seq_len] * x.size(0),
+                                                       [seq_len] * x.size(0),
                                                        batch_first=True)
 
         h_0_contig = self.h_0.expand(self.rnn_layers, x.size(0), self.rnn.hidden_size).contiguous()
         rnn_output, _ = self.rnn(x_reversed, h_0_contig)
-        rnn_output = utils.pad_and_reverse(rnn_output, [self.seq_len] * x.size(0))
+        rnn_output = utils.pad_and_reverse(rnn_output, [seq_len] * x.size(0))
 
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
-        for t in reversed(range(self.seq_len-1)):
+        for t in reversed(range(seq_len-1)):
             ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='yoshida4th')[-1]
         return ode_output
