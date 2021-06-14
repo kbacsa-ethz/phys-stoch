@@ -230,9 +230,10 @@ def main(cfg):
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
                     plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+                    plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
                     plt.plot(observations[n_re, :n_len, i], label="observations")
-                    lower_bound = Z_gen[n_re, :, i].data - Z_gen_scale[n_re, :, i].data
-                    upper_bound = Z_gen[n_re, :, i].data + Z_gen_scale[n_re, :, i].data
+                    lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
+                    upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                     facecolor='yellow', alpha=0.5,
                                     label='1 sigma range')
@@ -242,7 +243,7 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                #plt.show()
+                plt.show()
                 experiment.log_figure(figure=fig1)
 
                 vae.train()
