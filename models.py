@@ -20,6 +20,7 @@ class Emitter(nn.Module):
         self.linears.append(nn.Linear(emission_dim, input_dim))
 
         self.n_layers = len(self.linears)
+        self.input_dim = input_dim
         self.emission_dim = emission_dim
         self.h_activation = nn.ReLU()
         self.e_activation = nn.Softplus()

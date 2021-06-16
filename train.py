@@ -223,6 +223,8 @@ def main(cfg):
                 z_true = states[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in range(cfg.z_dim // 2)]
 
+                obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
+
                 fig1 = plt.figure(figsize=(16, 7))
                 plt.ioff()
                 for i in range(cfg.z_dim):
@@ -230,20 +232,23 @@ def main(cfg):
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
                     plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
-                    plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                    plt.plot(observations[n_re, :n_len, i], label="observations")
-                    lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
-                    upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
-                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
-                                    facecolor='yellow', alpha=0.5,
-                                    label='1 sigma range')
+
+                    # plot observations if needed
+                    if i in obs_idx:
+                        plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
+                        plt.plot(observations[n_re, :n_len, i], label="observations")
+                        lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
+                        upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                        ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
+                                        facecolor='yellow', alpha=0.5,
+                                        label='1 sigma range')
                     plt.legend()
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                plt.show()
+                #plt.show()
                 experiment.log_figure(figure=fig1)
 
                 vae.train()
