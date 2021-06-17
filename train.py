@@ -251,6 +251,28 @@ def main(cfg):
                 #plt.show()
                 experiment.log_figure(figure=fig1)
 
+                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in range(cfg.z_dim // 2)]
+                fig2 = plt.figure(figsize=(16, 7))
+                plt.ioff()
+                for i in range(cfg.input_dim):
+                    ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
+
+                    plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
+                    plt.plot(observations[n_re, :n_len, i], label="observations")
+                    lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
+                    upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
+                                    facecolor='yellow', alpha=0.5,
+                                    label='1 sigma range')
+                    plt.legend()
+                    plt.xlabel("$k$")
+                    plt.ylabel(Ylabels[i])
+
+                fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
+                plt.tight_layout()
+                #plt.show()
+                experiment.log_figure(figure=fig2)
+
                 vae.train()
 
     return 0
