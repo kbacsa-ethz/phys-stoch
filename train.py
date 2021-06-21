@@ -188,6 +188,7 @@ def main(cfg):
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
+                experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight), step=global_step)
                 #break
 
             epoch_loss /= len(train_dataset)
