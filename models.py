@@ -48,6 +48,7 @@ class Emitter(nn.Module):
             x = self.h_activation(self.linears[layer](x))
 
         self.hidden_to_loc.weight = nn.Parameter(self.householder(self.hidden_to_loc.weight))
+        self.hidden_to_scale.weight = nn.Parameter(self.householder(self.hidden_to_scale.weight))
         loc = self.hidden_to_loc(x)
         scale = self.e_activation(self.hidden_to_scale(x))
         return loc, scale
