@@ -63,7 +63,7 @@ def main(cfg):
         "learning_rate": cfg.learning_rate
     }
 
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8")
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
     # use gpu
@@ -308,6 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('--comet', action='store_true')
     args = parser.parse_args()
 
     main(args)
