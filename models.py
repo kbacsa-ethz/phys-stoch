@@ -13,11 +13,19 @@ class Emitter(nn.Module):
     def __init__(self, input_dim, z_dim, emission_dim, h_layers):
         super().__init__()
 
-        self.linears = nn.ModuleList([nn.Linear(z_dim, emission_dim)])
+        if h_layers == 0:
+            self.hidden_to_loc = nn.Linear(z_dim, input_dim)
+            self.hidden_to_scale = nn.Linear(z_dim, input_dim)
+        else:
+            self.hidden_to_loc = nn.Linear(emission_dim, input_dim)
+            self.hidden_to_scale = nn.Linear(emission_dim, input_dim)
+
+        self.linears = nn.ModuleList([])
         for layer in range(h_layers):
-            self.linears.append(nn.Linear(emission_dim, emission_dim))
-        self.linears.append(nn.Linear(emission_dim, input_dim))
-        self.linears.append(nn.Linear(emission_dim, input_dim))
+            if layer == 0:
+                self.linears.append(nn.Linear(z_dim, emission_dim))
+            else:
+                self.linears.append(nn.Linear(emission_dim, emission_dim))
 
         self.n_layers = len(self.linears)
         self.input_dim = input_dim
@@ -31,13 +39,12 @@ class Emitter(nn.Module):
         probabilities `ps` that parameterizes the distribution p(x_t|z_t)
         """
         x = z_t
+        # hidden layers
         for layer in range(self.n_layers):
-            if layer == self.n_layers - 1:
-                scale = self.e_activation(self.linears[layer](x))
-            elif layer == self.n_layers - 2:
-                loc = self.linears[layer](x)
-            else:
-                x = self.h_activation(self.linears[layer](x))
+            x = self.h_activation(self.linears[layer](x))
+
+        loc = self.hidden_to_loc(x)
+        scale = self.e_activation(self.hidden_to_scale(x))
         return loc, scale
 
 
@@ -212,21 +219,31 @@ class ODEEncoder(nn.Module):
 
 class PotentialODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20):
+    def __init__(self, latent_dim=4, nhidden=20, hlayers=0):
         super(PotentialODEfunc, self).__init__()
         self.tanh = nn.Tanh()
-        self.fc1 = nn.Linear(latent_dim, nhidden)
-        self.fc2 = nn.Linear(nhidden, 1)
+
+        self.linears = nn.ModuleList([])
+        self.linears.append(nn.Linear(latent_dim, nhidden))
+
+        for layer in range(hlayers):
+            self.linears.append(nn.Linear(nhidden, nhidden))
+
+        self.fc = nn.Linear(nhidden, 1)
+        self.nlayers = len(self.linears)
         self.nfe = 0
 
     def forward(self, t, x):
         with torch.enable_grad():
             one = torch.tensor(1, dtype=torch.float32, device=x.device, requires_grad=True)
             x *= one
+            out = x.clone()
             self.nfe += 1
-            out = self.fc1(x)
-            out = self.tanh(out)
-            out = self.fc2(out)
+
+            for layer in range(self.nlayers):
+                out = self.tanh(self.linears[layer](out))
+
+            out = self.fc(out)
             out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
         return out
 
@@ -253,17 +270,16 @@ class SymplecticODEEncoder(nn.Module):
     Parameterizes `q(z_t | x_{t:T})`
     """
 
-    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, seq_len, dt, discretization):
+    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
         super().__init__()
 
-        self.latent_func = PotentialODEfunc(z_dim, hidden_dim)
+        self.latent_func = PotentialODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
 
         self.h_0 = nn.Parameter(torch.zeros(rnn_layers, 1, z_dim))
         self.rnn_layers = rnn_layers
-        #self.seq_len = seq_len
         self.time = torch.arange(0, dt, dt/discretization)
 
     def forward(self, x, seq_len):

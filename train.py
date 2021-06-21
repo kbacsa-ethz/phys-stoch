@@ -137,9 +137,10 @@ def main(cfg):
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
     combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
-    encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, 60, 1,
-                                   non_linearity='relu', batch_first=True, rnn_layers=cfg.encoder_layers,
-                                   dropout=cfg.encoder_dropout_rate, seq_len=cfg.seq_len + 1, dt=0.1, discretization=10)
+    encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
+                                   non_linearity='relu', batch_first=True,
+                                   rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+                                   dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, cfg.z_dim,
@@ -288,10 +289,14 @@ if __name__ == '__main__':
     parser.add_argument('-in', '--input-dim', type=int, default=4)
     parser.add_argument('-z', '--z-dim', type=int, default=4)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
-    parser.add_argument('-ne', '--emission-layers', type=int, default=1)
+    parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
+    parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
+    parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
+    parser.add_argument('-dt', '--dt', type=float, default=0.1)
+    parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
     parser.add_argument('-lr', '--learning-rate', type=float, default=1e-3)
