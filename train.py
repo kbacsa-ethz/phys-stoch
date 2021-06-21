@@ -26,10 +26,6 @@ from dmm import DMM
 from utils import init_xavier, data_path_from_config
 
 import matplotlib as mpl
-
-mpl.use('TkAgg')
-# mpl.use('Agg') if you are on a headless machine
-
 import matplotlib.pyplot as plt
 
 
@@ -65,6 +61,11 @@ def main(cfg):
 
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
+
+    if args.headless:
+        mpl.use('Agg') # if you are on a headless machine
+    else:
+        mpl.use('TkAgg')
 
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
@@ -309,6 +310,7 @@ if __name__ == '__main__':
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--comet', action='store_true')
+    parser.add_argument('--headless', action='store_true')
     args = parser.parse_args()
 
     main(args)
