@@ -4,6 +4,8 @@ import utils
 
 from torchdiffeq.torchdiffeq import odeint
 
+from pyro.distributions.transforms.householder import Householder
+
 
 class Emitter(nn.Module):
     """
@@ -12,6 +14,8 @@ class Emitter(nn.Module):
 
     def __init__(self, input_dim, z_dim, emission_dim, h_layers):
         super().__init__()
+
+        self.householder = Householder(input_dim=input_dim, count_transforms=input_dim)
 
         if h_layers == 0:
             self.hidden_to_loc = nn.Linear(z_dim, input_dim, bias=False)
@@ -43,6 +47,7 @@ class Emitter(nn.Module):
         for layer in range(self.n_layers):
             x = self.h_activation(self.linears[layer](x))
 
+        self.hidden_to_loc.weight = nn.Parameter(self.householder(self.hidden_to_loc.weight))
         loc = self.hidden_to_loc(x)
         scale = self.e_activation(self.hidden_to_scale(x))
         return loc, scale
