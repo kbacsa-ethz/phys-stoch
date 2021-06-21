@@ -14,11 +14,11 @@ class Emitter(nn.Module):
         super().__init__()
 
         if h_layers == 0:
-            self.hidden_to_loc = nn.Linear(z_dim, input_dim)
-            self.hidden_to_scale = nn.Linear(z_dim, input_dim)
+            self.hidden_to_loc = nn.Linear(z_dim, input_dim, bias=False)
+            self.hidden_to_scale = nn.Linear(z_dim, input_dim, bias=False)
         else:
-            self.hidden_to_loc = nn.Linear(emission_dim, input_dim)
-            self.hidden_to_scale = nn.Linear(emission_dim, input_dim)
+            self.hidden_to_loc = nn.Linear(emission_dim, input_dim, bias=False)
+            self.hidden_to_scale = nn.Linear(emission_dim, input_dim, bias=False)
 
         self.linears = nn.ModuleList([])
         for layer in range(h_layers):
@@ -60,7 +60,7 @@ class GatedTransition(nn.Module):
         self.lin_gate_z_to_hidden = nn.Linear(z_dim, transition_dim)
         self.lin_gate_hidden_to_z = nn.Linear(transition_dim, z_dim)
         self.lin_proposed_mean_z_to_hidden = nn.Linear(z_dim, transition_dim)
-        self.lin_proposed_mean_hidden_to_z = nn.Linear(transition_dim, z_dim)
+        self.lin_proposed_mean_hidden_to_z = nn.Linear(transition_dim, z_dim, bias=False)
         self.lin_sig = nn.Linear(z_dim, z_dim)
         self.lin_z_to_loc = nn.Linear(z_dim, z_dim)
         # modify the default initialization of lin_z_to_loc

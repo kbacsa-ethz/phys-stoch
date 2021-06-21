@@ -19,11 +19,11 @@ def init_xavier(model, retrain_seed):
     torch.manual_seed(retrain_seed)
 
     def init_weights(m):
-        if type(m) == nn.Linear and m.weight.requires_grad and m.bias.requires_grad:
+        if type(m) == nn.Linear and m.weight.requires_grad:
             g = nn.init.calculate_gain('relu')
             torch.nn.init.xavier_uniform_(m.weight, gain=g)
             # torch.nn.init.xavier_normal_(m.weight, gain=g)
-            m.bias.data.fill_(0)
+            #m.bias.data.fill_(0)
 
     model.apply(init_weights)
 
