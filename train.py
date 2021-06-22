@@ -23,7 +23,7 @@ from pyro.optim import ClippedAdam
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
-from utils import init_xavier, data_path_from_config
+from utils import data_path_from_config, tril_init, get_zero_grad_hook
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -135,6 +135,13 @@ def main(cfg):
 
     # modules
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
+
+    # force triangular structure
+    emitter.apply(tril_init)
+    mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
+    # Register with hook
+    emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
+
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
     combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
     encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
@@ -146,7 +153,6 @@ def main(cfg):
     vae = DMM(emitter, transition, combiner, encoder, cfg.z_dim,
               (cfg.encoder_layers, cfg.batch_size, cfg.encoder_dim))
     vae.to(device)
-    init_xavier(vae, seed)
 
     # setup optimizer
     adam_params = {"lr": cfg.learning_rate,

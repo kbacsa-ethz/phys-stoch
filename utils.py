@@ -28,6 +28,20 @@ def init_xavier(model, retrain_seed):
     model.apply(init_weights)
 
 
+# Triangular init
+def tril_init(m):
+    if isinstance(m, nn.Linear):
+        with torch.no_grad():
+            m.weight.copy_(torch.tril(m.weight))
+
+
+# Zero out gradients
+def get_zero_grad_hook(mask):
+    def hook(grad):
+        return grad * mask
+    return hook
+
+
 # this function takes a torch mini-batch and reverses each sequence
 # (w.r.t. the temporal axis, i.e. axis=1).
 def reverse_sequences(mini_batch, seq_lengths):
