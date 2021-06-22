@@ -69,8 +69,7 @@ class GatedTransition(nn.Module):
         # initialize the six linear transformations used in the neural network
         self.lin_gate_z_to_hidden = nn.Linear(z_dim, transition_dim)
         self.lin_gate_hidden_to_z = nn.Linear(transition_dim, z_dim)
-        self.lin_proposed_mean_z_to_hidden = nn.Linear(z_dim, transition_dim)
-        self.lin_proposed_mean_hidden_to_z = nn.Linear(transition_dim, z_dim, bias=False)
+        self.lin_proposed_mean_z_to_z = nn.Linear(z_dim, z_dim, bias=False)
         self.lin_sig = nn.Linear(z_dim, z_dim)
         self.lin_z_to_loc = nn.Linear(z_dim, z_dim)
         # modify the default initialization of lin_z_to_loc
@@ -94,8 +93,7 @@ class GatedTransition(nn.Module):
         _gate = self.relu(self.lin_gate_z_to_hidden(z_t_1))
         gate = self.sigmoid(self.lin_gate_hidden_to_z(_gate))
         # compute the 'proposed mean'
-        _proposed_mean = self.relu(self.lin_proposed_mean_z_to_hidden(z_t_1))
-        proposed_mean = self.lin_proposed_mean_hidden_to_z(_proposed_mean)
+        proposed_mean = self.lin_proposed_mean_z_to_z(z_t_1)
         # assemble the actual mean used to sample z_t, which mixes
         # a linear transformation of z_{t-1} with the proposed mean
         # modulated by the gating function
