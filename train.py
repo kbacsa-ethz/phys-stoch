@@ -266,7 +266,7 @@ def main(cfg):
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
                 #plt.show()
-                experiment.log_figure(figure=fig1)
+                experiment.log_figure(figure=fig1, figure_name="latent_{}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in range(cfg.z_dim // 2)]
                 fig2 = plt.figure(figsize=(16, 7))
@@ -288,7 +288,7 @@ def main(cfg):
                 fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
                 #plt.show()
-                experiment.log_figure(figure=fig2)
+                experiment.log_figure(figure=fig2, figure_name="observations_{}".format(epoch))
 
                 vae.train()
 
