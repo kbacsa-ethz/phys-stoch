@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from math import sqrt
+
 
 def data_path_from_config(cfg):
     data_path = '/'.join([
@@ -40,6 +42,25 @@ def get_zero_grad_hook(mask):
     def hook(grad):
         return grad * mask
     return hook
+
+
+def fill_triangular(x, upper=False):
+    """
+    ref : https://github.com/tensorflow/probability/blob/master/tensorflow_probability/python/math/linalg.py
+    """
+
+    m = x.size(0)
+    n = int(sqrt(.25 + 2 * m) - .5)
+    x_tail = x[(m - (n**2 - m)):]
+
+    if upper:
+        x_mat = torch.cat([x, torch.flip(x_tail, [-1])], 0).reshape([n, n])
+        x_out = torch.triu(x_mat)
+    else:
+        x_mat = torch.cat([x_tail, torch.flip(x, [-1])], 0).reshape([n, n])
+        x_out = torch.tril(x_mat)
+
+    return x_out
 
 
 # this function takes a torch mini-batch and reverses each sequence

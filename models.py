@@ -4,7 +4,20 @@ import utils
 
 from torchdiffeq.torchdiffeq import odeint
 
-from pyro.distributions.transforms.householder import Householder
+
+class PosSemiDefLayer(nn.Module):
+
+    def __init__(self, dim):
+        super().__init__()
+
+        num_w = int(dim * (dim + 1) / 2)
+        self.l_param = nn.Parameter(torch.ones(num_w), requires_grad=True)
+
+    def forward(self, x):
+        l = utils.fill_triangular(self.l_param)
+        w = torch.transpose(l, 0, 1) * l
+        out = torch.nn.functional.linear(x, w)
+        return out
 
 
 class Emitter(nn.Module):
@@ -14,8 +27,6 @@ class Emitter(nn.Module):
 
     def __init__(self, input_dim, z_dim, emission_dim, h_layers):
         super().__init__()
-
-        self.householder = Householder(input_dim=input_dim, count_transforms=input_dim)
 
         if h_layers == 0:
             self.hidden_to_loc = nn.Linear(z_dim, input_dim, bias=False)
@@ -69,7 +80,7 @@ class GatedTransition(nn.Module):
         # initialize the six linear transformations used in the neural network
         self.lin_gate_z_to_hidden = nn.Linear(z_dim, transition_dim)
         self.lin_gate_hidden_to_z = nn.Linear(transition_dim, z_dim)
-        self.lin_proposed_mean_z_to_z = nn.Linear(z_dim, z_dim, bias=False)
+        self.lin_proposed_mean_z_to_z = PosSemiDefLayer(z_dim)
         self.lin_sig = nn.Linear(z_dim, z_dim)
         self.lin_z_to_loc = nn.Linear(z_dim, z_dim)
         # modify the default initialization of lin_z_to_loc
