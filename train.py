@@ -63,7 +63,7 @@ def main(cfg):
     experiment.log_parameters(hyper_params)
 
     if args.headless:
-        mpl.use('Agg') # if you are on a headless machine
+        mpl.use('Agg')  # if you are on a headless machine
     else:
         mpl.use('TkAgg')
 
@@ -202,7 +202,8 @@ def main(cfg):
                 optim_state = svi.optim.get_state()
                 batch_lr = optim_state[next(iter(optim_state))]['param_groups'][0]['lr']
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
-                experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight), step=global_step)
+                experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
+                                      step=global_step)
                 #break
 
             epoch_loss /= len(train_dataset)
@@ -227,7 +228,7 @@ def main(cfg):
 
                 # Zhilu plot
                 n_re = 0
-                n_len = cfg.seq_len*10
+                n_len = cfg.seq_len * 10
                 sample = np.expand_dims(observations[n_re], axis=0)
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
@@ -235,10 +236,35 @@ def main(cfg):
 
                 # TODO make this for any number of states
                 # TODO get force derivatives
+                q = Z[n_re, :, :cfg.z_dim // 2].data
+                qd = Z[n_re, :, cfg.z_dim // 2:].data
+
+                m = torch.eye(cfg.z_dim // 2)
+
+                # e_kin = torch.zeros()
+                # for t in range(q.size(1)):
+
+                time_length = q.size(0)
+                e_kin = torch.zeros(time_length, 1)
+                for t in range(time_length):
+                    e_kin[t] = torch.dot(qd[t, :], torch.matmul(m, qd[t, :].unsqueeze(-1)).squeeze(-1))
+
+                t_vec = torch.arange(1, time_length)
+                e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
+
+                import scipy.integrate
+                result_simps = scipy.integrate.simpson(e_pot.detach().numpy())
+
+                fig0 = plt.figure(figsize=(16, 7))
+                plt.plot(e_kin)
+                plt.plot(result_simps)
+                #plt.show()
+                experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
                 z_true = states[..., :cfg.z_dim]
-                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in range(cfg.z_dim // 2)]
+                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
+                                                                            range(cfg.z_dim // 2)]
 
                 obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
@@ -265,10 +291,11 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
-                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in range(cfg.z_dim // 2)]
+                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
+                                                                            range(cfg.z_dim // 2)]
                 fig2 = plt.figure(figsize=(16, 7))
                 plt.ioff()
                 for i in range(cfg.input_dim):
@@ -287,7 +314,7 @@ def main(cfg):
 
                 fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig2, figure_name="observations_{:02d}".format(epoch))
 
                 fig3 = plt.figure(figsize=(16, 7))
@@ -297,7 +324,7 @@ def main(cfg):
                 for i in np.arange(np.shape(c_mat)[0]):  # over all rows of count
                     for j in np.arange(np.shape(c_mat)[1]):  # over all cols of count
                         text = plt.text(j, i, str(round(c_mat[i, j], 2)), ha="center", va="center", color="r")
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig3, figure_name="c_mat_{:02d}".format(epoch))
 
                 fig4 = plt.figure(figsize=(16, 7))
@@ -307,7 +334,7 @@ def main(cfg):
                 for i in np.arange(np.shape(a_mat)[0]):  # over all rows of count
                     for j in np.arange(np.shape(a_mat)[1]):  # over all cols of count
                         text = plt.text(j, i, str(round(a_mat[i, j], 2)), ha="center", va="center", color="r")
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig3, figure_name="a_mat_{:02d}".format(epoch))
 
                 vae.train()
