@@ -266,7 +266,7 @@ def main(cfg):
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
                 #plt.show()
-                experiment.log_figure(figure=fig1, figure_name="latent_{}".format(epoch))
+                experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in range(cfg.z_dim // 2)]
                 fig2 = plt.figure(figsize=(16, 7))
@@ -288,7 +288,27 @@ def main(cfg):
                 fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
                 #plt.show()
-                experiment.log_figure(figure=fig2, figure_name="observations_{}".format(epoch))
+                experiment.log_figure(figure=fig2, figure_name="observations_{:02d}".format(epoch))
+
+                fig3 = plt.figure(figsize=(16, 7))
+                plt.ioff()
+                c_mat = vae.emitter.hidden_to_loc.weight.detach().numpy()
+                plt.imshow(c_mat)
+                for i in np.arange(np.shape(c_mat)[0]):  # over all rows of count
+                    for j in np.arange(np.shape(c_mat)[1]):  # over all cols of count
+                        text = plt.text(j, i, str(round(c_mat[i, j], 2)), ha="center", va="center", color="r")
+                #plt.show()
+                experiment.log_figure(figure=fig3, figure_name="c_mat_{:02d}".format(epoch))
+
+                fig4 = plt.figure(figsize=(16, 7))
+                plt.ioff()
+                a_mat = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
+                plt.imshow(a_mat)
+                for i in np.arange(np.shape(a_mat)[0]):  # over all rows of count
+                    for j in np.arange(np.shape(a_mat)[1]):  # over all cols of count
+                        text = plt.text(j, i, str(round(a_mat[i, j], 2)), ha="center", va="center", color="r")
+                #plt.show()
+                experiment.log_figure(figure=fig3, figure_name="a_mat_{:02d}".format(epoch))
 
                 vae.train()
 

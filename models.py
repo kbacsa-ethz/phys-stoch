@@ -12,10 +12,12 @@ class PosSemiDefLayer(nn.Module):
 
         num_w = int(dim * (dim + 1) / 2)
         self.l_param = nn.Parameter(torch.ones(num_w), requires_grad=True)
+        self.weight = None
 
     def forward(self, x):
         l = utils.fill_triangular(self.l_param)
         w = torch.transpose(l, 0, 1) * l
+        self.weight = w
         out = torch.nn.functional.linear(x, w)
         return out
 
