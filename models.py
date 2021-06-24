@@ -271,18 +271,25 @@ class PotentialODEfunc(nn.Module):
 
 class GradPotentialODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20):
+    def __init__(self, latent_dim=4, nhidden=20, hlayers=0):
         super(GradPotentialODEfunc, self).__init__()
         self.tanh = nn.Tanh()
-        self.fc1 = nn.Linear(latent_dim, nhidden)
-        self.fc2 = nn.Linear(nhidden, latent_dim)
+
+        self.linears = nn.ModuleList([])
+        self.linears.append(nn.Linear(latent_dim, nhidden))
+
+        for layer in range(hlayers):
+            self.linears.append(nn.Linear(nhidden, nhidden))
+
+        self.fc = nn.Linear(nhidden, 1)
+        self.nlayers = len(self.linears)
         self.nfe = 0
 
     def forward(self, t, x):
-        self.nfe += 1
-        out = self.fc1(x)
-        out = self.tanh(out)
-        out = self.fc2(out)
+        out = x.clone()
+        for layer in range(self.nlayers):
+            out = self.tanh(self.linears[layer](out))
+        out = self.fc(out)
         return out
 
 
@@ -294,7 +301,7 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
         super().__init__()
 
-        self.latent_func = PotentialODEfunc(z_dim, hidden_dim, n_layers)
+        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
