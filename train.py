@@ -257,7 +257,7 @@ def main(cfg):
 
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(e_kin)
-                plt.plot(result_simps)
+                plt.plot(e_pot.detach())
                 #plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
