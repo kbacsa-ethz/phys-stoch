@@ -92,15 +92,11 @@ def main(cfg):
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
     # normalize
-    scaler = StandardScaler()
+    observations_normalize = (observations - observations.mean(axis=2, keepdims=True)) / observations.std(axis=2, keepdims=True)
+    states_normalize = (states - states.mean(axis=2, keepdims=True)) / states.std(axis=2, keepdims=True)
 
-    n_obs, n_t, n_f = states.shape
-    scaler.fit(np.reshape(states, [n_obs*n_t, n_f]))
-
-    states_normalize = np.reshape(scaler.transform(np.reshape(states, [n_obs*n_t, n_f])), [n_obs, n_t, n_f])
-    observations_normalize = np.zeros_like(observations)
-    for idx, obs in enumerate(obs_idx):
-        observations_normalize[idx] = (observations[idx] - scaler.mean_[obs]) * scaler.scale_[obs]
+    #plt.plot(observations_normalize[0, :, :])
+    #plt.show()
 
     n_exp = states.shape[0]
     observations_windowed = []
