@@ -92,11 +92,8 @@ def main(cfg):
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
     # normalize
-    observations_normalize = (observations - observations.mean(axis=2, keepdims=True)) / observations.std(axis=2, keepdims=True)
-    states_normalize = (states - states.mean(axis=2, keepdims=True)) / states.std(axis=2, keepdims=True)
-
-    #plt.plot(observations_normalize[0, :, :])
-    #plt.show()
+    observations_normalize = (observations - observations.min(axis=2, keepdims=True)) / observations.ptp(axis=2, keepdims=True)
+    states_normalize = (states - observations.min(axis=2, keepdims=True)) / observations.ptp(axis=2, keepdims=True)
 
     n_exp = states.shape[0]
     observations_windowed = []
