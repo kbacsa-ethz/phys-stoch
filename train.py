@@ -254,7 +254,7 @@ def main(cfg):
                     e_kin[t] = torch.dot(qd[t, :], torch.matmul(m, qd[t, :].unsqueeze(-1)).squeeze(-1))
 
                 t_vec = torch.arange(1, time_length)
-                e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
+                e_pot = vae.encoder.latent_func(t_vec, q)
 
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(e_kin)

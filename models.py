@@ -281,7 +281,7 @@ class GradPotentialODEfunc(nn.Module):
         for layer in range(hlayers):
             self.linears.append(nn.Linear(nhidden, nhidden))
 
-        self.fc = nn.Linear(nhidden, 1)
+        self.fc = nn.Linear(nhidden, latent_dim)
         self.nlayers = len(self.linears)
         self.nfe = 0
 
@@ -301,7 +301,7 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
         super().__init__()
 
-        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim, n_layers)
+        self.latent_func = GradPotentialODEfunc(z_dim//2, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
@@ -325,5 +325,5 @@ class SymplecticODEEncoder(nn.Module):
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
         for t in reversed(range(seq_len-1)):
-            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='yoshida4th')[-1]
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='velocity_verlet')[-1]
         return ode_output
