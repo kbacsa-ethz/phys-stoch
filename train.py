@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from pyro.infer import (
     SVI,
@@ -92,7 +92,7 @@ def main(cfg):
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
     # normalize
-    scaler = MinMaxScaler()
+    scaler = StandardScaler()
 
     n_obs, n_t, n_f = states.shape
     scaler.fit(np.reshape(states, [n_obs*n_t, n_f]))
@@ -100,7 +100,7 @@ def main(cfg):
     states_normalize = np.reshape(scaler.transform(np.reshape(states, [n_obs*n_t, n_f])), [n_obs, n_t, n_f])
     observations_normalize = np.zeros_like(observations)
     for idx, obs in enumerate(obs_idx):
-        observations_normalize[idx] = (observations[idx] - scaler.data_min_[obs]) * scaler.data_range_[obs]
+        observations_normalize[idx] = (observations[idx] - scaler.mean_[obs]) * scaler.scale_[obs]
 
     n_exp = states.shape[0]
     observations_windowed = []
