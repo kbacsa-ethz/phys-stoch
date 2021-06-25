@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
 
 from pyro.infer import (
     SVI,
@@ -70,14 +71,13 @@ def main(cfg):
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
 
-    # load dataset
     run_dir = os.path.join(cfg.root_path, 'experiments')
-    obs_idx = [0]
 
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, cfg.config))
 
     exp_name = data_path_from_config(config)
+    obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
     # create experiment directory and save config
     now = datetime.now()
@@ -91,15 +91,27 @@ def main(cfg):
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
+    # normalize
+    scaler = MinMaxScaler()
+
+    n_obs, n_t, n_f = states.shape
+    scaler.fit(np.reshape(states, [n_obs*n_t, n_f]))
+
+    states_normalize = np.reshape(scaler.transform(np.reshape(states, [n_obs*n_t, n_f])), [n_obs, n_t, n_f])
+    observations_normalize = np.zeros_like(observations)
+    for idx, obs in enumerate(obs_idx):
+        observations_normalize[idx] = (observations[idx] - scaler.data_min_[obs]) * scaler.data_range_[obs]
+
     n_exp = states.shape[0]
     observations_windowed = []
     states_windowed = []
     forces_windowed = []
     for t in range(observations.shape[1] - cfg.seq_len):
-        qqd_w = observations[:, t:t + cfg.seq_len + 1]
+        qqd_w = observations_normalize[:, t:t + cfg.seq_len + 1]
         observations_windowed.append(qqd_w[:, None])
-        qqd_w = states[:, t:t + cfg.seq_len + 1]
+        qqd_w = states_normalize[:, t:t + cfg.seq_len + 1]
         states_windowed.append(qqd_w[:, None])
+        # TODO Normalize forces ?
         qqd_w = forces[:, t:t + cfg.seq_len + 1]
         forces_windowed.append(qqd_w[:, None])
 
@@ -229,7 +241,7 @@ def main(cfg):
                 # Zhilu plot
                 n_re = 0
                 n_len = cfg.seq_len * 10
-                sample = np.expand_dims(observations[n_re], axis=0)
+                sample = np.expand_dims(observations_normalize[n_re], axis=0)
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
@@ -252,9 +264,6 @@ def main(cfg):
                 t_vec = torch.arange(1, time_length)
                 e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
 
-                import scipy.integrate
-                result_simps = scipy.integrate.simpson(e_pot.detach().numpy())
-
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(e_kin)
                 plt.plot(e_pot.detach())
@@ -262,11 +271,9 @@ def main(cfg):
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
-                z_true = states[..., :cfg.z_dim]
+                z_true = states_normalize[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
-
-                obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
                 fig1 = plt.figure(figsize=(16, 7))
                 plt.ioff()
