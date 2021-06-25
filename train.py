@@ -279,7 +279,7 @@ def main(cfg):
                     # plot observations if needed
                     if i in obs_idx:
                         plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                        plt.plot(observations[n_re, :n_len, i], label="observations")
+                        plt.plot(observations_normalize[n_re, :n_len, i], label="observations")
                         lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
                         upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
                         ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
@@ -302,7 +302,7 @@ def main(cfg):
                     ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
 
                     plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                    plt.plot(observations[n_re, :n_len, i], label="observations")
+                    plt.plot(observations_normalize[n_re, :n_len, i], label="observations")
                     lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
                     upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
