@@ -301,7 +301,7 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
         super().__init__()
 
-        self.latent_func = GradPotentialODEfunc(z_dim//2, hidden_dim, n_layers)
+        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
