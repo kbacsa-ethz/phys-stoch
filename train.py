@@ -91,8 +91,12 @@ def main(cfg):
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
     # normalize
-    observations_normalize = (observations - observations.mean(axis=2, keepdims=True)) / observations.std(axis=2, keepdims=True)
-    states_normalize = (states - observations.mean(axis=2, keepdims=True)) / observations.std(axis=2, keepdims=True)
+    obs_mean = observations.mean(axis=(0, 1), keepdims=True)
+    obs_std = observations.std(axis=(0, 1), keepdims=True)
+    states_mean = states.mean(axis=(0, 1), keepdims=True)
+    states_std = states.std(axis=(0, 1), keepdims=True)
+    observations_normalize = (observations - obs_mean) / obs_std
+    states_normalize = (states - states_mean) / states_std
 
     n_exp = states.shape[0]
     observations_windowed = []
@@ -243,6 +247,13 @@ def main(cfg):
                 q = Z[n_re, :, :cfg.z_dim // 2].data
                 qd = Z[n_re, :, cfg.z_dim // 2:].data
 
+                # unormalize for plots
+                Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Obs = Obs.detach().numpy() * obs_std + obs_mean
+                Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
+
                 m = torch.eye(cfg.z_dim // 2)
 
                 # e_kin = torch.zeros()
@@ -263,7 +274,7 @@ def main(cfg):
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
-                z_true = states_normalize[..., :cfg.z_dim]
+                z_true = states[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
 
@@ -278,9 +289,9 @@ def main(cfg):
                     # plot observations if needed
                     if i in obs_idx:
                         plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                        plt.plot(observations_normalize[n_re, :n_len, i], label="observations")
-                        lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
-                        upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                        plt.plot(observations[n_re, :n_len, i], label="observations")
+                        lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
+                        upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
                         ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                         facecolor='yellow', alpha=0.5,
                                         label='1 sigma range')
@@ -290,7 +301,7 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                # plt.show()
+                #plt.show()
                 experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
@@ -301,9 +312,9 @@ def main(cfg):
                     ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
 
                     plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                    plt.plot(observations_normalize[n_re, :n_len, i], label="observations")
-                    lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
-                    upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                    plt.plot(observations[n_re, :n_len, i], label="observations")
+                    lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
+                    upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                     facecolor='yellow', alpha=0.5,
                                     label='1 sigma range')
