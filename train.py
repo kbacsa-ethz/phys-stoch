@@ -44,20 +44,7 @@ def main(cfg):
     seed = 42
     torch.manual_seed(seed)
 
-    hyper_params = {
-        "seed": seed,
-        "sequence_length": cfg.seq_len,
-        "input_dim": cfg.input_dim,
-        "z_dim": cfg.z_dim,
-        "emission_dim": cfg.emission_dim,
-        "emission_layers": cfg.emission_layers,
-        "transmission_dim": cfg.transmission_dim,
-        "encoder_dim": cfg.encoder_dim,
-        "encoder_layers": cfg.encoder_layers,
-        "batch_size": cfg.batch_size,
-        "num_epochs": cfg.num_epochs,
-        "learning_rate": cfg.learning_rate
-    }
+    hyper_params = vars(cfg)
 
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
