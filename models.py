@@ -299,16 +299,21 @@ class SymplecticODEEncoder(nn.Module):
     Parameterizes `q(z_t | x_{t:T})`
     """
 
-    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
+    def __init__(self,
+                 input_size, z_dim,
+                 hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout,
+                 integrator,
+                 dt, discretization):
         super().__init__()
 
-        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim, n_layers)
+        self.latent_func = PotentialODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
 
         self.h_0 = nn.Parameter(torch.zeros(rnn_layers, 1, z_dim))
         self.rnn_layers = rnn_layers
+        self.integrator = integrator
         self.time = torch.arange(0, dt, dt/discretization)
 
     def forward(self, x, seq_len):
@@ -326,5 +331,5 @@ class SymplecticODEEncoder(nn.Module):
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
         for t in reversed(range(seq_len-1)):
-            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='yoshida4th')[-1]
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method=self.integrator)[-1]
         return ode_output
