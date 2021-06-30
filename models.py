@@ -82,8 +82,8 @@ class GatedTransition(nn.Module):
         # initialize the six linear transformations used in the neural network
         self.lin_gate_z_to_hidden = nn.Linear(z_dim, transition_dim)
         self.lin_gate_hidden_to_z = nn.Linear(transition_dim, z_dim)
-        self.lin_proposed_mean_z_to_z = PosSemiDefLayer(z_dim)
-        #self.lin_proposed_mean_z_to_z = nn.Linear(z_dim, z_dim, bias=False)
+        #self.lin_proposed_mean_z_to_z = PosSemiDefLayer(z_dim)
+        self.lin_proposed_mean_z_to_z = nn.Linear(z_dim, z_dim, bias=False)
         self.lin_sig = nn.Linear(z_dim, z_dim)
         self.lin_z_to_loc = nn.Linear(z_dim, z_dim)
         # modify the default initialization of lin_z_to_loc
@@ -306,7 +306,7 @@ class SymplecticODEEncoder(nn.Module):
                  dt, discretization):
         super().__init__()
 
-        self.latent_func = PotentialODEfunc(z_dim, hidden_dim, n_layers)
+        self.latent_func = GradPotentialODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)

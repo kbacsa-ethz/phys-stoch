@@ -132,10 +132,10 @@ def main(cfg):
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
 
     # force triangular structure
-    emitter.apply(tril_init)
-    mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
+    #emitter.apply(tril_init)
+    #mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
     # Register with hook
-    emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
+    #emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
 
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
 
@@ -271,18 +271,20 @@ def main(cfg):
                 for i in range(cfg.z_dim):
                     ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    plt.plot(Z[n_re, :, i].data, label="inference")
+                    #plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
 
                     # plot observations if needed
                     if i in obs_idx:
                         plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
+                        """
                         plt.plot(observations[n_re, :n_len, i], label="observations")
                         lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
                         upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
                         ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                         facecolor='yellow', alpha=0.5,
                                         label='1 sigma range')
+                        """
                     plt.legend()
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
