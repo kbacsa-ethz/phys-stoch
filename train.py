@@ -200,7 +200,7 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                #break
+                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -214,7 +214,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    #break
+                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -256,8 +256,9 @@ def main(cfg):
                 e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
 
                 fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(e_kin)
-                plt.plot(e_pot.detach())
+                plt.plot(e_kin, label="kinetic")
+                plt.plot(e_pot.detach(), label="potential")
+                plt.legend(loc="upper left")
                 #plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
@@ -285,7 +286,7 @@ def main(cfg):
                                         facecolor='yellow', alpha=0.5,
                                         label='1 sigma range')
                         """
-                    plt.legend()
+                    plt.legend(loc="upper left")
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
@@ -308,7 +309,7 @@ def main(cfg):
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                     facecolor='yellow', alpha=0.5,
                                     label='1 sigma range')
-                    plt.legend()
+                    plt.legend(loc="upper left")
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
