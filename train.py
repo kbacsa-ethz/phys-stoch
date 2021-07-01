@@ -256,9 +256,6 @@ def main(cfg):
                     [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
                     dim=1)).sum(dim=1).detach().numpy()
 
-                import scipy.integrate
-
-                latent_potential = scipy.integrate.trapz(latent_potential)
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(latent_kinetic, label="learned kinetic")
                 plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
