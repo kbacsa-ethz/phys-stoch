@@ -71,6 +71,9 @@ def main(ag, cfg):
     obs_tensor = np.zeros([n_iter, len(tics), len(obs_idx)])
     force_tensor = np.zeros([n_iter, len(tics), n_dof])
 
+    # kinetic, potential, dissipative, input, total
+    energy_tensor = np.zeros([n_iter, len(tics), 5])
+
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
@@ -98,6 +101,13 @@ def main(ag, cfg):
 
         # join states and measure
         state = np.concatenate([wsol, wsol_dot[:, n_dof:]], axis=1)
+
+        # calcuate energy of system
+        q = state[:, :n_dof, None]
+        qdot = state[:, n_dof:2*n_dof, None]
+        kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+        potential = 0.5 * np.matmul(np.transpose(q, axes=[0, 2, 1]), np.matmul(k, q))
+
         obs = np.zeros([state.shape[0], len(obs_idx)])
         for i, idx in enumerate(obs_idx):
             obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
@@ -105,10 +115,14 @@ def main(ag, cfg):
         state_tensor[iter_idx] = state
         obs_tensor[iter_idx] = obs
         force_tensor[iter_idx] = force_input.T
+        energy_tensor[iter_idx, :, 0] = kinetic.flatten()
+        energy_tensor[iter_idx, :, 1] = potential.flatten()
+        energy_tensor[iter_idx, :, 4] = kinetic.flatten() + potential.flatten()
 
     np.save(os.path.join(save_path, 'state.npy'), state_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
+    np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
     return 0
 
