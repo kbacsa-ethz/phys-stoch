@@ -162,10 +162,10 @@ class DMM(nn.Module):
             z_gen_loc, z_gen_scale = self.trans(z_loc)
             obs_loc, obs_scale = self.emitter(z_gen_loc)
             z_prev = z_loc
-            Z[:, t - 1] = z_loc[:, 0]
-            Z_gen[:, t - 1] = z_gen_loc[:, 0]
-            Obs[:, t - 1] = obs_loc[:, 0]
-            Obs_scale[:, t - 1] = obs_scale[:, 0]
-            Z_gen_scale[:, t - 1] = z_gen_scale[:, 0]
+            Z[:, t - 1] = z_loc[0, :]
+            Z_gen[:, t - 1] = z_gen_loc[0, :]
+            Obs[:, t - 1] = obs_loc[0, :]
+            Obs_scale[:, t - 1] = obs_scale[0, :]
+            Z_gen_scale[:, t - 1] = z_gen_scale[0, :]
 
         return Z, Z_gen, Z_gen_scale, Obs, Obs_scale
