@@ -1,3 +1,4 @@
+import pyro
 from comet_ml import Experiment
 
 import os
@@ -43,6 +44,7 @@ def main(cfg):
     # add DLSC parameters like seed
     seed = 42
     torch.manual_seed(seed)
+    pyro.set_rng_seed(seed)
 
     hyper_params = vars(cfg)
 
@@ -201,7 +203,7 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                #break
+                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -215,7 +217,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    #break
+                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -238,32 +240,33 @@ def main(cfg):
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
-
                 # TODO make this for any number of states
                 # TODO get force derivatives
-                q = Z[n_re, :, :cfg.z_dim // 2].data
-                qd = Z[n_re, :, cfg.z_dim // 2:].data
-                qdot = qd.numpy()
+                q = Z[n_re, :, :cfg.z_dim // 2]
+                qd = Z[n_re, :, cfg.z_dim // 2:]
+                qdot = qd
                 qdot = qdot[..., None]
 
-                m = np.eye(cfg.z_dim//2)
+                m = np.eye(cfg.z_dim // 2)
                 latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
                 latent_kinetic = latent_kinetic.flatten()
 
-                time_length = q.size(0)
+                time_length = len(q)
                 t_vec = torch.arange(1, time_length)
-                latent_potential = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1)).sum(dim=1).detach().numpy()
+                latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
+                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
+                    dim=1)).sum(dim=1).detach().numpy()
 
                 import scipy.integrate
 
-                #latent_potential = scipy.integrate.simps(latent_potential)
+                # latent_potential = scipy.integrate.simps(latent_potential)
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(latent_kinetic, label="learned kinetic")
                 plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
                 plt.plot(latent_potential, label="learned potential")
                 plt.plot(energy[n_re, :time_length, 1], label="true potential")
                 plt.legend(loc="upper left")
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
@@ -276,7 +279,7 @@ def main(cfg):
                 for i in range(cfg.z_dim):
                     ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    #plt.plot(Z[n_re, :, i].data, label="inference")
+                    # plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
 
                     # plot observations if needed
@@ -296,7 +299,7 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
