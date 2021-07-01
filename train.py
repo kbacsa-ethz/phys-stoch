@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+import pyro
 
 from pyro.infer import (
     SVI,
@@ -40,14 +41,14 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 
 
 def main(cfg):
+    hyper_params = vars(cfg)
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
+    experiment.log_parameters(hyper_params)
+
     # add DLSC parameters like seed
     seed = 42
     torch.manual_seed(seed)
-
-    hyper_params = vars(cfg)
-
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
-    experiment.log_parameters(hyper_params)
+    pyro.set_rng_seed(seed)
 
     if args.headless:
         mpl.use('Agg')  # if you are on a headless machine
@@ -76,6 +77,7 @@ def main(cfg):
     states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
+    energy = np.load(os.path.join(cfg.data_dir, exp_name, 'energy.npy'))
 
     # normalize
     obs_mean = observations.mean(axis=(0, 1), keepdims=True)
@@ -230,11 +232,6 @@ def main(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
-                # TODO make this for any number of states
-                # TODO get force derivatives
-                q = Z[n_re, :, :cfg.z_dim // 2].data
-                qd = Z[n_re, :, cfg.z_dim // 2:].data
-
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
                 Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
@@ -242,24 +239,30 @@ def main(cfg):
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
-                m = torch.eye(cfg.z_dim // 2)
+                # TODO make this for any number of states
+                # TODO get force derivatives
+                q = Z[n_re, :, :cfg.z_dim // 2]
+                qd = Z[n_re, :, cfg.z_dim // 2:]
+                qdot = qd
+                qdot = qdot[..., None]
 
-                # e_kin = torch.zeros()
-                # for t in range(q.size(1)):
+                m = np.eye(cfg.z_dim // 2)
+                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+                latent_kinetic = latent_kinetic.flatten()
 
-                time_length = q.size(0)
-                e_kin = torch.zeros(time_length, 1)
-                for t in range(time_length):
-                    e_kin[t] = torch.dot(qd[t, :], torch.matmul(m, qd[t, :].unsqueeze(-1)).squeeze(-1))
-
+                time_length = len(q)
                 t_vec = torch.arange(1, time_length)
-                e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
+                latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
+                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
+                    dim=1)).sum(dim=1).detach().numpy()
 
                 fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(e_kin, label="kinetic")
-                plt.plot(e_pot.detach(), label="potential")
+                plt.plot(latent_kinetic / np.max(np.abs(latent_kinetic)), label="learned kinetic")
+                plt.plot(energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])), label="true kinetic")
+                plt.plot(latent_potential / np.max(np.abs(latent_potential)), label="learned potential")
+                plt.plot(energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1])), label="true potential")
                 plt.legend(loc="upper left")
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
@@ -272,7 +275,7 @@ def main(cfg):
                 for i in range(cfg.z_dim):
                     ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    #plt.plot(Z[n_re, :, i].data, label="inference")
+                    # plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
 
                     # plot observations if needed
@@ -292,7 +295,7 @@ def main(cfg):
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                #plt.show()
+                # plt.show()
                 experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
