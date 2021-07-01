@@ -231,19 +231,20 @@ def main(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
-                # TODO make this for any number of states
-                # TODO get force derivatives
-                q = Z[n_re, :, :cfg.z_dim // 2].data
-                qd = Z[n_re, :, cfg.z_dim // 2:].data
-                qdot = qd.numpy()
-                qdot = qdot[..., None]
-
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
                 Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
                 Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
+
+
+                # TODO make this for any number of states
+                # TODO get force derivatives
+                q = Z[n_re, :, :cfg.z_dim // 2].data
+                qd = Z[n_re, :, cfg.z_dim // 2:].data
+                qdot = qd.numpy()
+                qdot = qdot[..., None]
 
                 m = np.eye(cfg.z_dim//2)
                 latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
@@ -255,7 +256,7 @@ def main(cfg):
 
                 import scipy.integrate
 
-                latent_potential = scipy.integrate.simps(latent_potential)
+                #latent_potential = scipy.integrate.simps(latent_potential)
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(latent_kinetic, label="learned kinetic")
                 plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
