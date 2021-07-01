@@ -1,4 +1,3 @@
-import pyro
 from comet_ml import Experiment
 
 import os
@@ -10,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+import pyro
 
 from pyro.infer import (
     SVI,
