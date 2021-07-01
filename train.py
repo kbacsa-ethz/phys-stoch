@@ -251,9 +251,9 @@ def main(cfg):
                 latent_kinetic = latent_kinetic.flatten()
 
                 time_length = len(q)
-                t_vec = torch.arange(1, time_length)
+                t_vec = torch.arange(1, time_length+1) / cfg.dt
                 latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
-                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
+                    [t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
                     dim=1)).sum(dim=1).detach().numpy()
 
                 fig0 = plt.figure(figsize=(16, 7))
