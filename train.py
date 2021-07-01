@@ -44,20 +44,7 @@ def main(cfg):
     seed = 42
     torch.manual_seed(seed)
 
-    hyper_params = {
-        "seed": seed,
-        "sequence_length": cfg.seq_len,
-        "input_dim": cfg.input_dim,
-        "z_dim": cfg.z_dim,
-        "emission_dim": cfg.emission_dim,
-        "emission_layers": cfg.emission_layers,
-        "transmission_dim": cfg.transmission_dim,
-        "encoder_dim": cfg.encoder_dim,
-        "encoder_layers": cfg.encoder_layers,
-        "batch_size": cfg.batch_size,
-        "num_epochs": cfg.num_epochs,
-        "learning_rate": cfg.learning_rate
-    }
+    hyper_params = vars(cfg)
 
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
@@ -70,14 +57,13 @@ def main(cfg):
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
 
-    # load dataset
     run_dir = os.path.join(cfg.root_path, 'experiments')
-    obs_idx = [0]
 
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, cfg.config))
 
     exp_name = data_path_from_config(config)
+    obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
     # create experiment directory and save config
     now = datetime.now()
@@ -91,15 +77,24 @@ def main(cfg):
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
 
+    # normalize
+    obs_mean = observations.mean(axis=(0, 1), keepdims=True)
+    obs_std = observations.std(axis=(0, 1), keepdims=True)
+    states_mean = states.mean(axis=(0, 1), keepdims=True)
+    states_std = states.std(axis=(0, 1), keepdims=True)
+    observations_normalize = (observations - obs_mean) / obs_std
+    states_normalize = (states - states_mean) / states_std
+
     n_exp = states.shape[0]
     observations_windowed = []
     states_windowed = []
     forces_windowed = []
     for t in range(observations.shape[1] - cfg.seq_len):
-        qqd_w = observations[:, t:t + cfg.seq_len + 1]
+        qqd_w = observations_normalize[:, t:t + cfg.seq_len + 1]
         observations_windowed.append(qqd_w[:, None])
-        qqd_w = states[:, t:t + cfg.seq_len + 1]
+        qqd_w = states_normalize[:, t:t + cfg.seq_len + 1]
         states_windowed.append(qqd_w[:, None])
+        # TODO Normalize forces ?
         qqd_w = forces[:, t:t + cfg.seq_len + 1]
         forces_windowed.append(qqd_w[:, None])
 
@@ -155,6 +150,7 @@ def main(cfg):
     encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+                                   integrator=cfg.symplectic_integrator,
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
@@ -229,7 +225,7 @@ def main(cfg):
                 # Zhilu plot
                 n_re = 0
                 n_len = cfg.seq_len * 10
-                sample = np.expand_dims(observations[n_re], axis=0)
+                sample = np.expand_dims(observations_normalize[n_re], axis=0)
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
@@ -238,6 +234,13 @@ def main(cfg):
                 # TODO get force derivatives
                 q = Z[n_re, :, :cfg.z_dim // 2].data
                 qd = Z[n_re, :, cfg.z_dim // 2:].data
+
+                # unormalize for plots
+                Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Obs = Obs.detach().numpy() * obs_std + obs_mean
+                Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
                 m = torch.eye(cfg.z_dim // 2)
 
@@ -252,12 +255,10 @@ def main(cfg):
                 t_vec = torch.arange(1, time_length)
                 e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
 
-                import scipy.integrate
-                result_simps = scipy.integrate.simpson(e_pot.detach().numpy())
-
                 fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(e_kin)
-                plt.plot(e_pot.detach())
+                plt.plot(e_kin, label="kinetic")
+                plt.plot(e_pot.detach(), label="potential")
+                plt.legend(loc="upper left")
                 #plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
@@ -266,32 +267,32 @@ def main(cfg):
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
 
-                obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
-
                 fig1 = plt.figure(figsize=(16, 7))
                 plt.ioff()
                 for i in range(cfg.z_dim):
                     ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
                     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    plt.plot(Z[n_re, :, i].data, label="inference")
+                    #plt.plot(Z[n_re, :, i].data, label="inference")
                     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
 
                     # plot observations if needed
                     if i in obs_idx:
                         plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
+                        """
                         plt.plot(observations[n_re, :n_len, i], label="observations")
-                        lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
-                        upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                        lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
+                        upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
                         ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                         facecolor='yellow', alpha=0.5,
                                         label='1 sigma range')
-                    plt.legend()
+                        """
+                    plt.legend(loc="upper left")
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
                 fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
                 plt.tight_layout()
-                # plt.show()
+                #plt.show()
                 experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
@@ -303,12 +304,12 @@ def main(cfg):
 
                     plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
                     plt.plot(observations[n_re, :n_len, i], label="observations")
-                    lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
-                    upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                    lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
+                    upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
                     ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
                                     facecolor='yellow', alpha=0.5,
                                     label='1 sigma range')
-                    plt.legend()
+                    plt.legend(loc="upper left")
                     plt.xlabel("$k$")
                     plt.ylabel(Ylabels[i])
 
@@ -357,6 +358,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
+    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='yoshida4th')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
