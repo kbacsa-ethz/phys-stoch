@@ -76,6 +76,7 @@ def main(cfg):
     states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
+    energy = np.load(os.path.join(cfg.data_dir, exp_name, 'energy.npy'))
 
     # normalize
     obs_mean = observations.mean(axis=(0, 1), keepdims=True)
@@ -234,6 +235,8 @@ def main(cfg):
                 # TODO get force derivatives
                 q = Z[n_re, :, :cfg.z_dim // 2].data
                 qd = Z[n_re, :, cfg.z_dim // 2:].data
+                qdot = qd.numpy()
+                qdot = qdot[..., None]
 
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
@@ -242,22 +245,19 @@ def main(cfg):
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
-                m = torch.eye(cfg.z_dim // 2)
-
-                # e_kin = torch.zeros()
-                # for t in range(q.size(1)):
+                m = np.eye(cfg.z_dim//2)
+                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+                latent_kinetic = latent_kinetic.flatten()
 
                 time_length = q.size(0)
-                e_kin = torch.zeros(time_length, 1)
-                for t in range(time_length):
-                    e_kin[t] = torch.dot(qd[t, :], torch.matmul(m, qd[t, :].unsqueeze(-1)).squeeze(-1))
-
                 t_vec = torch.arange(1, time_length)
-                e_pot = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1))
+                latent_potential = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1)).sum(dim=1)
 
                 fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(e_kin, label="kinetic")
-                plt.plot(e_pot.detach(), label="potential")
+                plt.plot(latent_kinetic, label="learned kinetic")
+                plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
+                plt.plot(latent_potential.detach().numpy(), label="learned potential")
+                plt.plot(energy[n_re, :time_length, 1], label="true potential")
                 plt.legend(loc="upper left")
                 #plt.show()
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
