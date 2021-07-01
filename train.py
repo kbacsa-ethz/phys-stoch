@@ -259,7 +259,7 @@ def main(cfg):
 
                 import scipy.integrate
 
-                # latent_potential = scipy.integrate.simps(latent_potential)
+                latent_potential = scipy.integrate.simps(latent_potential)
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(latent_kinetic, label="learned kinetic")
                 plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
