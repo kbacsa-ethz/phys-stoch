@@ -41,15 +41,14 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 
 
 def main(cfg):
+    hyper_params = vars(cfg)
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
+    experiment.log_parameters(hyper_params)
+
     # add DLSC parameters like seed
     seed = 42
     torch.manual_seed(seed)
     pyro.set_rng_seed(seed)
-
-    hyper_params = vars(cfg)
-
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
-    experiment.log_parameters(hyper_params)
 
     if args.headless:
         mpl.use('Agg')  # if you are on a headless machine
