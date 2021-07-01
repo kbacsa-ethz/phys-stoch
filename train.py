@@ -201,7 +201,7 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                #break
+                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -215,7 +215,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    #break
+                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -251,12 +251,15 @@ def main(cfg):
 
                 time_length = q.size(0)
                 t_vec = torch.arange(1, time_length)
-                latent_potential = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1)).sum(dim=1)
+                latent_potential = vae.encoder.latent_func(t_vec, torch.cat([q, qd], dim=1)).sum(dim=1).detach().numpy()
 
+                import scipy.integrate
+
+                latent_potential = scipy.integrate.simps(latent_potential)
                 fig0 = plt.figure(figsize=(16, 7))
                 plt.plot(latent_kinetic, label="learned kinetic")
                 plt.plot(energy[n_re, :time_length, 0], label="true kinetic")
-                plt.plot(latent_potential.detach().numpy(), label="learned potential")
+                plt.plot(latent_potential, label="learned potential")
                 plt.plot(energy[n_re, :time_length, 1], label="true potential")
                 plt.legend(loc="upper left")
                 #plt.show()
