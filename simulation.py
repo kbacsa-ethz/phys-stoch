@@ -133,5 +133,5 @@ if __name__ == '__main__':
     parser.add_argument('--root-path', type=str, default='.')
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, 'config/2springmass_free.ini'))
+    config.read(os.path.join(args.root_path, 'config/2springmass_dissipative.ini'))
     main(args, config)
