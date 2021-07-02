@@ -202,7 +202,7 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                #break
+                break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -216,7 +216,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    #break
+                    break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -253,7 +253,7 @@ def main(cfg):
                 time_length = len(q)
                 t_vec = torch.arange(1, time_length+1) / cfg.dt
                 latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
-                    [t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
+                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
                     dim=1)).sum(dim=1).detach().numpy()
 
                 fig0 = plt.figure(figsize=(16, 7))
