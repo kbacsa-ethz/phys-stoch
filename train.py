@@ -134,10 +134,10 @@ def main(cfg):
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
 
     # force triangular structure
-    emitter.apply(tril_init)
-    mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
+    #emitter.apply(tril_init)
+    #mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
     # Register with hook
-    emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
+    #emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
 
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
 
