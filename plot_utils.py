@@ -14,13 +14,19 @@ def simple_plot(x_axis, values, names, title, debug=False):
     return fig
 
 
-def grid_plot(x_axis, values, max_1, max_2, n_plots, names, title, y_label, debug=False):
+def grid_plot(x_axis, values, uncertainty, max_1, max_2, n_plots, names, title, y_label, debug=False):
     fig = plt.figure(figsize=(16, 7))
     plt.title(title)
     for i in range(n_plots):
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
-        for v, n in zip(values, names):
+        for v, u, n in zip(values, uncertainty, names):
             plt.plot(x_axis, v[max_1, :max_2, i], label=n)  # plot first instance as default
+            if u is not None:
+                lower_bound = v[max_1, :max_2, i] - u[max_1, :max_2, i]
+                upper_bound = v[max_1, :max_2, i] + u[max_1, :max_2, i]
+                ax.fill_between(x_axis, lower_bound, upper_bound,
+                                facecolor='yellow', alpha=0.5,
+                                label='1 sigma range')
 
         plt.legend(loc="upper left")
         plt.xlabel("$t$")

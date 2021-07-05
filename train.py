@@ -277,6 +277,7 @@ def main(cfg):
                 fig = grid_plot(
                     x_axis=t_vec,
                     values=[z_true, Z_gen],
+                    uncertainty=[None, Z_gen_scale],
                     max_1=n_re,
                     max_2=n_len,
                     n_plots=cfg.z_dim,
@@ -293,6 +294,7 @@ def main(cfg):
                 fig = grid_plot(
                     x_axis=t_vec,
                     values=[Obs, observations],
+                    uncertainty=[Obs_scale, None],
                     max_1=n_re,
                     max_2=n_len,
                     n_plots=cfg.input_dim,
