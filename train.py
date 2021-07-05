@@ -27,7 +27,7 @@ from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
 from utils import data_path_from_config, tril_init, get_zero_grad_hook
-from plot_utils import simple_plot
+from plot_utils import *
 
 
 # saves the model and optimizer states to disk
@@ -134,10 +134,10 @@ def main(cfg):
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
 
     # force triangular structure
-    #emitter.apply(tril_init)
-    #mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
+    # emitter.apply(tril_init)
+    # mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
     # Register with hook
-    #emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
+    # emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
 
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
 
@@ -251,12 +251,13 @@ def main(cfg):
                 latent_kinetic = latent_kinetic.flatten()
 
                 time_length = len(q)
-                t_vec = torch.arange(1, time_length+1) / cfg.dt
+                t_vec = torch.arange(1, time_length + 1) * cfg.dt
                 latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
                     [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
                     dim=1)).sum(dim=1).detach().numpy()
 
-                fig0 = simple_plot(
+                fig = simple_plot(
+                    x_axis=t_vec,
                     values=[latent_kinetic / np.max(np.abs(latent_kinetic)),
                             energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])),
                             latent_potential / np.max(np.abs(latent_potential)),
@@ -266,83 +267,58 @@ def main(cfg):
                     debug=True
                 )
 
-                experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
                 z_true = states[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
 
-                fig1 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                for i in range(cfg.z_dim):
-                    ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
-                    plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    # plt.plot(Z[n_re, :, i].data, label="inference")
-                    plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+                fig = grid_plot(
+                    x_axis=t_vec,
+                    values=[z_true, Z_gen],
+                    max_1=n_re,
+                    max_2=n_len,
+                    n_plots=cfg.z_dim,
+                    names=["reference", "generative model"],
+                    title="Learned Latent Space - Training epoch =" + " " + str(epoch),
+                    y_label=Ylabels,
+                    debug=True
+                )
 
-                    # plot observations if needed
-                    if i in obs_idx:
-                        plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                        """
-                        plt.plot(observations[n_re, :n_len, i], label="observations")
-                        lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
-                        upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
-                        ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
-                                        facecolor='yellow', alpha=0.5,
-                                        label='1 sigma range')
-                        """
-                    plt.legend(loc="upper left")
-                    plt.xlabel("$k$")
-                    plt.ylabel(Ylabels[i])
-
-                fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
-                plt.tight_layout()
-                # plt.show()
-                experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
-                fig2 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                for i in range(cfg.input_dim):
-                    ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
+                fig = grid_plot(
+                    x_axis=t_vec,
+                    values=[Obs, observations],
+                    max_1=n_re,
+                    max_2=n_len,
+                    n_plots=cfg.input_dim,
+                    names=["generated observations", "true observations"],
+                    title='Observations - Training epoch =' + "" + str(epoch),
+                    y_label=Ylabels,
+                    debug=True
+                )
 
-                    plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                    plt.plot(observations[n_re, :n_len, i], label="observations")
-                    lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
-                    upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
-                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
-                                    facecolor='yellow', alpha=0.5,
-                                    label='1 sigma range')
-                    plt.legend(loc="upper left")
-                    plt.xlabel("$k$")
-                    plt.ylabel(Ylabels[i])
+                experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
 
-                fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
-                plt.tight_layout()
-                # plt.show()
-                experiment.log_figure(figure=fig2, figure_name="observations_{:02d}".format(epoch))
+                fig = matrix_plot(
+                    matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
+                    title="Emission matrix at epoch = " + str(epoch),
+                    debug=True
+                )
 
-                fig3 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                c_mat = vae.emitter.hidden_to_loc.weight.detach().numpy()
-                plt.imshow(c_mat)
-                for i in np.arange(np.shape(c_mat)[0]):  # over all rows of count
-                    for j in np.arange(np.shape(c_mat)[1]):  # over all cols of count
-                        text = plt.text(j, i, str(round(c_mat[i, j], 2)), ha="center", va="center", color="r")
-                # plt.show()
-                experiment.log_figure(figure=fig3, figure_name="c_mat_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
-                fig4 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                a_mat = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
-                plt.imshow(a_mat)
-                for i in np.arange(np.shape(a_mat)[0]):  # over all rows of count
-                    for j in np.arange(np.shape(a_mat)[1]):  # over all cols of count
-                        text = plt.text(j, i, str(round(a_mat[i, j], 2)), ha="center", va="center", color="r")
-                # plt.show()
-                experiment.log_figure(figure=fig3, figure_name="a_mat_{:02d}".format(epoch))
+                fig = matrix_plot(
+                    matrix=vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy(),
+                    title="Transmission matrix at epoch = " + str(epoch),
+                    debug=True
+                )
+
+                experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
                 vae.train()
 
