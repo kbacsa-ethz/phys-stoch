@@ -9,6 +9,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import pyro
 
 from pyro.infer import (
@@ -25,9 +27,7 @@ from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
 from utils import data_path_from_config, tril_init, get_zero_grad_hook
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+from plot_utils import simple_plot
 
 
 # saves the model and optimizer states to disk
@@ -256,13 +256,16 @@ def main(cfg):
                     [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
                     dim=1)).sum(dim=1).detach().numpy()
 
-                fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(latent_kinetic / np.max(np.abs(latent_kinetic)), label="learned kinetic")
-                plt.plot(energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])), label="true kinetic")
-                plt.plot(latent_potential / np.max(np.abs(latent_potential)), label="learned potential")
-                plt.plot(energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1])), label="true potential")
-                plt.legend(loc="upper left")
-                # plt.show()
+                fig0 = simple_plot(
+                    values=[latent_kinetic / np.max(np.abs(latent_kinetic)),
+                            energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])),
+                            latent_potential / np.max(np.abs(latent_potential)),
+                            energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1]))],
+                    names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
+                    title="Energy",
+                    debug=True
+                )
+
                 experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
