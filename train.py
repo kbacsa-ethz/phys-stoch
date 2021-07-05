@@ -137,7 +137,7 @@ def main(cfg):
     encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                   integrator=cfg.symplectic_integrator,
+                                   integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
@@ -239,9 +239,13 @@ def main(cfg):
 
                 time_length = len(q)
                 t_vec = torch.arange(1, time_length + 1) * cfg.dt
-                latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
-                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
-                    dim=1)).sum(dim=1).detach().numpy()
+
+                if cfg.dissipative:
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                else:
+                    input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+
+                latent_potential = vae.encoder.latent_func(t_vec, input_tensor).sum(dim=1).detach().numpy()
 
                 fig = simple_plot(
                     x_axis=t_vec,
@@ -330,6 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-symp', '--symplectic-integrator', type=str, default='leap_frog')
+    parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
