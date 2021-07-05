@@ -45,6 +45,8 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
+    debug = False
+
     # add DLSC parameters like seed
     seed = 42
     torch.manual_seed(seed)
@@ -202,7 +204,8 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                break
+                if debug:
+                    break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -216,7 +219,8 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    break
+                    if debug:
+                        break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -264,7 +268,7 @@ def main(cfg):
                             energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1]))],
                     names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
                     title="Energy",
-                    debug=True
+                    debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
@@ -284,7 +288,7 @@ def main(cfg):
                     names=["reference", "generative model"],
                     title="Learned Latent Space - Training epoch =" + " " + str(epoch),
                     y_label=Ylabels,
-                    debug=True
+                    debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
@@ -301,7 +305,7 @@ def main(cfg):
                     names=["generated observations", "true observations"],
                     title='Observations - Training epoch =' + "" + str(epoch),
                     y_label=Ylabels,
-                    debug=True
+                    debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
@@ -309,7 +313,7 @@ def main(cfg):
                 fig = matrix_plot(
                     matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
                     title="Emission matrix at epoch = " + str(epoch),
-                    debug=True
+                    debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
@@ -317,7 +321,7 @@ def main(cfg):
                 fig = matrix_plot(
                     matrix=vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy(),
                     title="Transmission matrix at epoch = " + str(epoch),
-                    debug=True
+                    debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
