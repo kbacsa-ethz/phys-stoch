@@ -6,11 +6,9 @@ import configparser
 import json
 from datetime import datetime
 from pathlib import Path
-import numpy as np
 import torch
 from tqdm import tqdm
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import pyro
 
 from pyro.infer import (
@@ -26,7 +24,7 @@ from pyro.optim import ClippedAdam
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
-from utils import data_path_from_config, tril_init, get_zero_grad_hook
+from utils import data_path_from_config
 from plot_utils import *
 
 
