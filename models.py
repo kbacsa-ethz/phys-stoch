@@ -82,7 +82,6 @@ class GatedTransition(nn.Module):
         # initialize the six linear transformations used in the neural network
         self.lin_gate_z_to_hidden = nn.Linear(z_dim, transition_dim)
         self.lin_gate_hidden_to_z = nn.Linear(transition_dim, z_dim)
-        #self.lin_proposed_mean_z_to_z = PosSemiDefLayer(z_dim)
         self.lin_proposed_mean_z_to_z = nn.Linear(z_dim, z_dim, bias=False)
         self.lin_sig = nn.Linear(z_dim, z_dim)
         self.lin_z_to_loc = nn.Linear(z_dim, z_dim)

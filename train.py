@@ -134,22 +134,7 @@ def main(cfg):
 
     # modules
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
-
-    # force triangular structure
-    # emitter.apply(tril_init)
-    # mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
-    # Register with hook
-    # emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
-
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
-
-    """
-    # force triangular structure
-    transition.apply(tril_init)
-    mask = torch.tril(torch.ones_like(transition.lin_proposed_mean_z_to_z.weight))
-    transition.lin_proposed_mean_z_to_z.weight.register_hook(get_zero_grad_hook(mask))
-    """
-
     combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
     encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
                                    non_linearity='relu', batch_first=True,
