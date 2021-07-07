@@ -2,6 +2,8 @@ import argparse
 import configparser
 import os
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -77,8 +79,8 @@ def main(ag, cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.random([n_dof, 1]).squeeze(1)
-        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        q0 = np.zeros([n_dof, 1]).squeeze(1)
+        qdot0 = np.zeros([n_dof, 1]).squeeze(1)
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
