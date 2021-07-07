@@ -2,6 +2,8 @@ import argparse
 import configparser
 import os
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -77,8 +79,8 @@ def main(ag, cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.random([n_dof, 1]).squeeze(1)
-        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        q0 = np.zeros([n_dof, 1]).squeeze(1)
+        qdot0 = np.zeros([n_dof, 1]).squeeze(1)
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -131,7 +133,8 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_sinusoidal.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, 'config/2springmass_free.ini'))
+    config.read(os.path.join(args.root_path, args.config_path))
     main(args, config)

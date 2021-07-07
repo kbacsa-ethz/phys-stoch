@@ -6,9 +6,9 @@ import configparser
 import json
 from datetime import datetime
 from pathlib import Path
-import numpy as np
 import torch
 from tqdm import tqdm
+import matplotlib as mpl
 import pyro
 
 from pyro.infer import (
@@ -24,10 +24,8 @@ from pyro.optim import ClippedAdam
 from phys_data import TrajectoryDataset
 from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
 from dmm import DMM
-from utils import data_path_from_config, tril_init, get_zero_grad_hook
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+from utils import data_path_from_config
+from plot_utils import *
 
 
 # saves the model and optimizer states to disk
@@ -44,6 +42,8 @@ def main(cfg):
     hyper_params = vars(cfg)
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
+
+    debug = True
 
     # add DLSC parameters like seed
     seed = 42
@@ -132,27 +132,12 @@ def main(cfg):
 
     # modules
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
-
-    # force triangular structure
-    emitter.apply(tril_init)
-    mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
-    # Register with hook
-    emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
-
     transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
-
-    """
-    # force triangular structure
-    transition.apply(tril_init)
-    mask = torch.tril(torch.ones_like(transition.lin_proposed_mean_z_to_z.weight))
-    transition.lin_proposed_mean_z_to_z.weight.register_hook(get_zero_grad_hook(mask))
-    """
-
     combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
     encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                   integrator=cfg.symplectic_integrator,
+                                   integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
@@ -202,7 +187,8 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                #break
+                if debug:
+                    break
 
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
@@ -216,7 +202,8 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    #break
+                    if debug:
+                        break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -233,9 +220,9 @@ def main(cfg):
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
                 # unormalize for plots
-                Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
-                Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
-                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
+                Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
+                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
@@ -251,95 +238,80 @@ def main(cfg):
                 latent_kinetic = latent_kinetic.flatten()
 
                 time_length = len(q)
-                t_vec = torch.arange(1, time_length)
-                latent_potential = vae.encoder.latent_func(t_vec, torch.cat(
-                    [torch.from_numpy(q).float(), torch.from_numpy(qd).float()],
-                    dim=1)).sum(dim=1).detach().numpy()
+                t_vec = torch.arange(1, time_length + 1) * cfg.dt
 
-                fig0 = plt.figure(figsize=(16, 7))
-                plt.plot(latent_kinetic / np.max(np.abs(latent_kinetic)), label="learned kinetic")
-                plt.plot(energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])), label="true kinetic")
-                plt.plot(latent_potential / np.max(np.abs(latent_potential)), label="learned potential")
-                plt.plot(energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1])), label="true potential")
-                plt.legend(loc="upper left")
-                # plt.show()
-                experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
+                if cfg.dissipative:
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                else:
+                    input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+
+                latent_potential = vae.encoder.latent_func(t_vec, input_tensor).sum(dim=1).detach().numpy()
+
+                fig = simple_plot(
+                    x_axis=t_vec,
+                    values=[latent_kinetic,
+                            energy[n_re, :time_length, 0],
+                            latent_potential,
+                            energy[n_re, :time_length, 1]],
+                    names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
+                    title="Energy",
+                    debug=debug
+                )
+
+                experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
                 z_true = states[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
 
-                fig1 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                for i in range(cfg.z_dim):
-                    ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
-                    plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
-                    # plt.plot(Z[n_re, :, i].data, label="inference")
-                    plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+                fig = grid_plot(
+                    x_axis=t_vec,
+                    values=[z_true, Z_gen],
+                    uncertainty=[None, Z_gen_scale],
+                    max_1=n_re,
+                    max_2=n_len,
+                    n_plots=cfg.z_dim,
+                    names=["reference", "generative model"],
+                    title="Learned Latent Space - Training epoch =" + " " + str(epoch),
+                    y_label=Ylabels,
+                    debug=debug
+                )
 
-                    # plot observations if needed
-                    if i in obs_idx:
-                        plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                        """
-                        plt.plot(observations[n_re, :n_len, i], label="observations")
-                        lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
-                        upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
-                        ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
-                                        facecolor='yellow', alpha=0.5,
-                                        label='1 sigma range')
-                        """
-                    plt.legend(loc="upper left")
-                    plt.xlabel("$k$")
-                    plt.ylabel(Ylabels[i])
-
-                fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
-                plt.tight_layout()
-                # plt.show()
-                experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
-                fig2 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                for i in range(cfg.input_dim):
-                    ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
+                fig = grid_plot(
+                    x_axis=t_vec,
+                    values=[Obs, observations],
+                    uncertainty=[Obs_scale, None],
+                    max_1=n_re,
+                    max_2=n_len,
+                    n_plots=cfg.input_dim,
+                    names=["generated observations", "true observations"],
+                    title='Observations - Training epoch =' + "" + str(epoch),
+                    y_label=Ylabels,
+                    debug=debug
+                )
 
-                    plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
-                    plt.plot(observations[n_re, :n_len, i], label="observations")
-                    lower_bound = Obs[n_re, :n_len, i] - Obs_scale[n_re, :n_len, i]
-                    upper_bound = Obs[n_re, :n_len, i] + Obs_scale[n_re, :n_len, i]
-                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
-                                    facecolor='yellow', alpha=0.5,
-                                    label='1 sigma range')
-                    plt.legend(loc="upper left")
-                    plt.xlabel("$k$")
-                    plt.ylabel(Ylabels[i])
+                experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
 
-                fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
-                plt.tight_layout()
-                # plt.show()
-                experiment.log_figure(figure=fig2, figure_name="observations_{:02d}".format(epoch))
+                fig = matrix_plot(
+                    matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
+                    title="Emission matrix at epoch = " + str(epoch),
+                    debug=debug
+                )
 
-                fig3 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                c_mat = vae.emitter.hidden_to_loc.weight.detach().numpy()
-                plt.imshow(c_mat)
-                for i in np.arange(np.shape(c_mat)[0]):  # over all rows of count
-                    for j in np.arange(np.shape(c_mat)[1]):  # over all cols of count
-                        text = plt.text(j, i, str(round(c_mat[i, j], 2)), ha="center", va="center", color="r")
-                # plt.show()
-                experiment.log_figure(figure=fig3, figure_name="c_mat_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
-                fig4 = plt.figure(figsize=(16, 7))
-                plt.ioff()
-                a_mat = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
-                plt.imshow(a_mat)
-                for i in np.arange(np.shape(a_mat)[0]):  # over all rows of count
-                    for j in np.arange(np.shape(a_mat)[1]):  # over all cols of count
-                        text = plt.text(j, i, str(round(a_mat[i, j], 2)), ha="center", va="center", color="r")
-                # plt.show()
-                experiment.log_figure(figure=fig3, figure_name="a_mat_{:02d}".format(epoch))
+                fig = matrix_plot(
+                    matrix=vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy(),
+                    title="Transmission matrix at epoch = " + str(epoch),
+                    debug=debug
+                )
+
+                experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
                 vae.train()
 
@@ -351,7 +323,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
+    parser.add_argument('--config', type=str, default='config/2springmass_dissipative.ini')
     parser.add_argument('-in', '--input-dim', type=int, default=4)
     parser.add_argument('-z', '--z-dim', type=int, default=4)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
@@ -361,7 +333,8 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='yoshida4th')
+    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='leap_frog')
+    parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=10)
