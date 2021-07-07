@@ -43,7 +43,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = False
+    debug = True
 
     # add DLSC parameters like seed
     seed = 42
@@ -220,9 +220,9 @@ def main(cfg):
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
                 # unormalize for plots
-                Z = Z.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
-                Z_gen = Z_gen.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
-                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :4] + states_mean[..., :4]
+                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
+                Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
+                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
