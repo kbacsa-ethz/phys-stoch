@@ -249,10 +249,10 @@ def main(cfg):
 
                 fig = simple_plot(
                     x_axis=t_vec,
-                    values=[latent_kinetic / np.max(np.abs(latent_kinetic)),
-                            energy[n_re, :time_length, 0] / np.max(np.abs(energy[n_re, :time_length, 0])),
-                            latent_potential / np.max(np.abs(latent_potential)),
-                            energy[n_re, :time_length, 1] / np.max(np.abs(energy[n_re, :time_length, 1]))],
+                    values=[latent_kinetic,
+                            energy[n_re, :time_length, 0],
+                            latent_potential,
+                            energy[n_re, :time_length, 1]],
                     names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
                     title="Energy",
                     debug=debug
