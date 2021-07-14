@@ -307,7 +307,7 @@ class SymplecticODEEncoder(nn.Module):
 
         if dissipative:
             integrator += '_dissipative'
-            self.latent_func = GradPotentialODEfunc(z_dim+1, hidden_dim, n_layers)
+            self.latent_func = GradPotentialODEfunc((z_dim//2)+1, hidden_dim, n_layers)
         else:
             self.latent_func = GradPotentialODEfunc(z_dim//2, hidden_dim, n_layers)  # TODO temporary fix for verlet
 
