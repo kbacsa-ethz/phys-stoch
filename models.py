@@ -255,17 +255,17 @@ class PotentialODEfunc(nn.Module):
         self.nfe = 0
 
     def forward(self, t, x):
-        with torch.enable_grad():
-            one = torch.tensor(1, dtype=torch.float32, device=x.device, requires_grad=True)
-            x *= one
-            out = x.clone()
-            self.nfe += 1
+        torch.set_grad_enabled(True)  # force use of gradients even during evaluation
+        one = torch.tensor(1, dtype=torch.float32, device=x.device, requires_grad=True)
+        x *= one
+        out = x.clone()
+        self.nfe += 1
 
-            for layer in range(self.nlayers):
-                out = self.tanh(self.linears[layer](out))
+        for layer in range(self.nlayers):
+            out = self.tanh(self.linears[layer](out))
 
-            out = self.fc(out)
-            out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
+        out = self.fc(out)
+        out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
         return out
 
 
@@ -309,7 +309,7 @@ class SymplecticODEEncoder(nn.Module):
             integrator += '_dissipative'
             self.latent_func = GradPotentialODEfunc((z_dim//2)+1, hidden_dim, n_layers)
         else:
-            self.latent_func = GradPotentialODEfunc(z_dim//2, hidden_dim, n_layers)  # TODO temporary fix for verlet
+            self.latent_func = PotentialODEfunc(z_dim//2, hidden_dim, n_layers)  # TODO temporary fix for verlet
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
