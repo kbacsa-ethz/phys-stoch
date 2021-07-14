@@ -43,7 +43,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = True
+    debug = False
 
     # add DLSC parameters like seed
     seed = 42
@@ -243,7 +243,8 @@ def main(cfg):
                 if cfg.dissipative:
                     input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                 else:
-                    input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.from_numpy(q).float()
 
                 latent_potential = vae.encoder.latent_func(t_vec, input_tensor).sum(dim=1).detach().numpy()
 
@@ -333,7 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='leap_frog')
+    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
