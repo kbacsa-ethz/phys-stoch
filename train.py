@@ -314,7 +314,9 @@ def main(cfg):
 
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
-                print("Mass at epoch {} are {}".format(epoch, vae.encoder.latent_func.m_1.data))
+                mass = vae.encoder.latent_func.m_1.data
+                for i in range(cfg.z_dim //2):
+                    experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
 
                 vae.train()
 
