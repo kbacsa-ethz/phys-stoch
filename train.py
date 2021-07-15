@@ -10,8 +10,7 @@ import torch
 from tqdm import tqdm
 import matplotlib as mpl
 import pyro
-import scipy.integrate
-
+torch.autograd.set_detect_anomaly(True)
 from pyro.infer import (
     SVI,
     JitTrace_ELBO,
@@ -44,7 +43,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = True
+    debug = False
 
     # add DLSC parameters like seed
     seed = 42
@@ -314,6 +313,8 @@ def main(cfg):
                 )
 
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
+
+                print("Mass at epoch {} are {}".format(epoch, vae.encoder.latent_func.m_1.data))
 
                 vae.train()
 

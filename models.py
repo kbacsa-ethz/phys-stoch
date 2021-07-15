@@ -246,6 +246,7 @@ class PotentialODEfunc(nn.Module):
 
         self.linears = nn.ModuleList([])
         self.linears.append(nn.Linear(latent_dim, nhidden))
+        self.m_1 = nn.Parameter(torch.ones(latent_dim), requires_grad=True)
 
         for layer in range(hlayers):
             self.linears.append(nn.Linear(nhidden, nhidden))
@@ -266,6 +267,9 @@ class PotentialODEfunc(nn.Module):
 
         out = self.fc(out)
         out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
+
+        # multiply by inverse of mass
+        out = torch.nn.functional.linear(out, torch.diag(self.m_1))
         return out
 
     def energy(self, t, x):
