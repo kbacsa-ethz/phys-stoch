@@ -10,6 +10,7 @@ import torch
 from tqdm import tqdm
 import matplotlib as mpl
 import pyro
+import scipy.integrate
 
 from pyro.infer import (
     SVI,
@@ -43,7 +44,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = False
+    debug = True
 
     # add DLSC parameters like seed
     seed = 42
@@ -246,7 +247,7 @@ def main(cfg):
                     #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
 
-                latent_potential = vae.encoder.latent_func(t_vec, input_tensor).sum(dim=1).detach().numpy()
+                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
 
                 fig = simple_plot(
                     x_axis=t_vec,

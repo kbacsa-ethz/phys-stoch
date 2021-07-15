@@ -268,6 +268,16 @@ class PotentialODEfunc(nn.Module):
         out = torch.autograd.grad(out.sum(), x, create_graph=True)[0]
         return out
 
+    def energy(self, t, x):
+        out = x.clone()
+        self.nfe += 1
+
+        for layer in range(self.nlayers):
+            out = self.tanh(self.linears[layer](out))
+
+        out = self.fc(out)
+        return out
+
 
 class GradPotentialODEfunc(nn.Module):
 
