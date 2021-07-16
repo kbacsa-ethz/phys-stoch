@@ -240,13 +240,17 @@ class ODEEncoder(nn.Module):
 
 class PotentialODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20, hlayers=0):
+    def __init__(self, latent_dim=4, nhidden=20, hlayers=0, learn_kinetic=False):
         super(PotentialODEfunc, self).__init__()
         self.tanh = nn.Tanh()
 
         self.linears = nn.ModuleList([])
         self.linears.append(nn.Linear(latent_dim, nhidden))
-        self.m_1 = nn.Parameter(torch.ones(latent_dim), requires_grad=True)
+
+        if learn_kinetic:
+            self.m_1 = nn.Parameter(torch.ones(latent_dim), requires_grad=True)
+        else:
+            self.m_1 = torch.ones(latent_dim)
 
         for layer in range(hlayers):
             self.linears.append(nn.Linear(nhidden, nhidden))
@@ -315,7 +319,7 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self,
                  input_size, z_dim,
                  hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout,
-                 integrator, dissipative,
+                 integrator, dissipative, learn_kinetic,
                  dt, discretization):
         super().__init__()
 
@@ -323,7 +327,7 @@ class SymplecticODEEncoder(nn.Module):
             integrator += '_dissipative'
             self.latent_func = GradPotentialODEfunc((z_dim//2)+1, hidden_dim, n_layers)
         else:
-            self.latent_func = PotentialODEfunc(z_dim//2, hidden_dim, n_layers)  # TODO temporary fix for verlet
+            self.latent_func = PotentialODEfunc(z_dim//2, hidden_dim, n_layers, learn_kinetic)  # TODO temporary fix for verlet
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)

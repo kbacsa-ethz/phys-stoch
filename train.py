@@ -138,6 +138,7 @@ def main(cfg):
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
                                    integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
+                                   learn_kinetic=cfg.learn_kinetic,
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
@@ -358,6 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
+    parser.add_argument('--learn-kinetic', action='store_true')
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--comet', action='store_true')
     parser.add_argument('--headless', action='store_true')
