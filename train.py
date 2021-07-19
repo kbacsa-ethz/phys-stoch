@@ -10,7 +10,6 @@ import torch
 from tqdm import tqdm
 import matplotlib as mpl
 import pyro
-torch.autograd.set_detect_anomaly(True)
 from pyro.infer import (
     SVI,
     JitTrace_ELBO,
@@ -242,7 +241,7 @@ def main(cfg):
                 t_vec = torch.arange(1, time_length + 1) * cfg.dt
 
                 if cfg.dissipative:
-                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
                 else:
                     #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
@@ -307,8 +306,9 @@ def main(cfg):
 
                 experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
+                A = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
                 fig = matrix_plot(
-                    matrix=vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy(),
+                    matrix=A,
                     title="Transmission matrix at epoch = " + str(epoch),
                     debug=debug
                 )
