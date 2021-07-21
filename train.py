@@ -10,7 +10,6 @@ import torch
 from tqdm import tqdm
 import matplotlib as mpl
 import pyro
-
 from pyro.infer import (
     SVI,
     JitTrace_ELBO,
@@ -43,7 +42,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = True
+    debug = False
 
     # add DLSC parameters like seed
     seed = 42
@@ -138,6 +137,7 @@ def main(cfg):
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
                                    integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
+                                   learn_kinetic=cfg.learn_kinetic,
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
@@ -241,11 +241,12 @@ def main(cfg):
                 t_vec = torch.arange(1, time_length + 1) * cfg.dt
 
                 if cfg.dissipative:
-                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
                 else:
-                    input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.from_numpy(q).float()
 
-                latent_potential = vae.encoder.latent_func(t_vec, input_tensor).sum(dim=1).detach().numpy()
+                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
 
                 fig = simple_plot(
                     x_axis=t_vec,
@@ -305,13 +306,18 @@ def main(cfg):
 
                 experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
+                A = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
                 fig = matrix_plot(
-                    matrix=vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy(),
+                    matrix=A,
                     title="Transmission matrix at epoch = " + str(epoch),
                     debug=debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
+
+                mass = vae.encoder.latent_func.m_1.data
+                for i in range(cfg.z_dim //2):
+                    experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
 
                 vae.train()
 
@@ -323,7 +329,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config', type=str, default='config/2springmass_dissipative.ini')
+    parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
     parser.add_argument('-in', '--input-dim', type=int, default=4)
     parser.add_argument('-z', '--z-dim', type=int, default=4)
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
@@ -333,7 +339,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='leap_frog')
+    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
@@ -353,6 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
+    parser.add_argument('--learn-kinetic', action='store_true')
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--comet', action='store_true')
     parser.add_argument('--headless', action='store_true')
