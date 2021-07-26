@@ -2,8 +2,6 @@ import argparse
 import configparser
 import os
 from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -73,14 +71,20 @@ def main(ag, cfg):
     obs_tensor = np.zeros([n_iter, len(tics), len(obs_idx)])
     force_tensor = np.zeros([n_iter, len(tics), n_dof])
 
-    # kinetic, potential, dissipative, input, total
-    energy_tensor = np.zeros([n_iter, len(tics), 5])
-
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.random([n_dof, 1]).squeeze(1)
-        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        
+        # q0 = np.random.random([n_dof, 1]).squeeze(1)
+        # qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        
+        q0 = np.zeros(n_dof,)
+        qdot0 = np.zeros(n_dof,)
+        q0[0] = np.random.normal(2,0.2)
+        q0[1] = np.random.normal(1,0.2)
+        qdot0[0] = np.random.normal(1,0.2)
+        qdot0[1] = np.random.normal(-2,0.2)
+        
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -103,13 +107,6 @@ def main(ag, cfg):
 
         # join states and measure
         state = np.concatenate([wsol, wsol_dot[:, n_dof:]], axis=1)
-
-        # calcuate energy of system
-        q = state[:, :n_dof, None]
-        qdot = state[:, n_dof:2*n_dof, None]
-        kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
-        potential = 0.5 * np.matmul(np.transpose(q, axes=[0, 2, 1]), np.matmul(k, q))
-
         obs = np.zeros([state.shape[0], len(obs_idx)])
         for i, idx in enumerate(obs_idx):
             obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
@@ -117,14 +114,10 @@ def main(ag, cfg):
         state_tensor[iter_idx] = state
         obs_tensor[iter_idx] = obs
         force_tensor[iter_idx] = force_input.T
-        energy_tensor[iter_idx, :, 0] = kinetic.flatten()
-        energy_tensor[iter_idx, :, 1] = potential.flatten()
-        energy_tensor[iter_idx, :, 4] = kinetic.flatten() + potential.flatten()
 
     np.save(os.path.join(save_path, 'state.npy'), state_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
-    np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
     return 0
 
@@ -133,8 +126,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_dissipative.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, args.config_path))
+    config.read(os.path.join(args.root_path, 'config/2springmass_free.ini'))
     main(args, config)

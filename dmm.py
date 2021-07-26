@@ -31,10 +31,13 @@ class DMM(nn.Module):
         # define a (trainable) parameters z_0 and z_q_0 that help define
         # the probability distributions p(z_1) and q(z_1)
         # (since for t = 1 there are no previous latents to condition on)
-        self.z_0 = nn.Parameter(torch.zeros(z_dim))
-        self.z_q_0 = nn.Parameter(torch.zeros(z_dim))
+        # self.z_0 = nn.Parameter(torch.zeros(z_dim))
+        # self.z_q_0 = nn.Parameter(torch.zeros(z_dim))
+        self.z_0 = nn.Parameter(torch.randn(z_dim))
+        self.z_q_0 = nn.Parameter(torch.randn(z_dim))
         # define a (trainable) parameter for the initial hidden state of the rnn
-        self.h_0 = nn.Parameter(torch.zeros(encoder_shape))
+        # self.h_0 = nn.Parameter(torch.zeros(encoder_shape))
+        self.h_0 = nn.Parameter(torch.randn(encoder_shape))
 
         self.use_cuda = use_cuda
         # if on gpu cuda-ize all pytorch (sub)modules
@@ -101,7 +104,8 @@ class DMM(nn.Module):
 
         # push the observed x's through the rnn;
         # encoder_output contains the hidden state at each time step
-        encoder_output = self.encoder(mini_batch, T_max)
+        # encoder_output = self.encoder(mini_batch, T_max)
+        h1, h2 = self.encoder(mini_batch, T_max)
 
         # set z_prev = z_q_0 to setup the recursive conditioning in q(z_t |...)
         z_prev = self.z_q_0.expand(mini_batch.size(0), self.z_q_0.size(0))
@@ -113,8 +117,8 @@ class DMM(nn.Module):
             # we wrap this loop in pyro.markov so that TraceEnum_ELBO can use multiple samples from the guide at each z
             for t in pyro.markov(range(1, T_max + 1)):
                 # the next two lines assemble the distribution q(z_t | z_{t-1}, x_{t:T})
-                z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
-
+                # z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
+                z_loc, z_scale = self.combiner(z_prev, h1[:, t - 1, :], h2[:, t - 1, :])
                 # if we are using normalizing flows, we apply the sequence of transformations
                 # parameterized by self.iafs to the base distribution defined in the previous line
                 # to yield a transformed distribution that we use for q(z_t|...)
@@ -147,25 +151,38 @@ class DMM(nn.Module):
         # infer all x_t from ODE-RNN
         T_max = x.size(1)
 
-        encoder_output = self.encoder(x, T_max)
-        z_prev = self.z_q_0.data
+        # encoder_output = self.encoder(x, T_max)
+        h1, h2 = self.encoder(x, T_max)
+        # z_prev = torch.zeros_like(encoder_output) # ??
+        z_prev = self.z_q_0.expand(1,T_max,-1)
         # step by step trans in the other direction
 
-        Z = torch.zeros([1, T_max-1, self.trans.z_dim])
-        Z_gen = torch.zeros([1, T_max-1, self.trans.z_dim])
-        Z_gen_scale = torch.zeros([1, T_max-1, self.trans.z_dim])
-        Obs = torch.zeros([1, T_max-1, self.emitter.input_dim])
-        Obs_scale = torch.zeros([1, T_max-1, self.emitter.input_dim])
+        Z = torch.zeros([1, T_max, self.trans.z_dim])
+        Z_gen = torch.zeros([1, T_max, self.trans.z_dim])
+        Z_gen_scale = torch.zeros([1, T_max, self.trans.z_dim])
+        Obs = torch.zeros([1, T_max, self.emitter.input_dim])
+        Obs_scale = torch.zeros([1, T_max, self.emitter.input_dim])
 
-        for t in range(1, T_max):
-            z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
-            z_gen_loc, z_gen_scale = self.trans(z_loc)
-            obs_loc, obs_scale = self.emitter(z_gen_loc)
+        for t in range(1, T_max + 1):
+
+            z_loc, z_scale = self.combiner(torch.squeeze(z_prev), 
+                                           torch.squeeze(h1[:, t - 1, :]),
+                                           torch.squeeze(h2[:, t - 1, :]),
+                                           
+                                           )
+            z_gen_loc, z_gen_scale = self.trans( torch.squeeze(z_loc) )
+            # obs_loc, obs_scale = self.emitter(z_gen_loc)
+            obs_loc, obs_scale = self.emitter(z_loc)
+            
             z_prev = z_loc
-            Z[:, t - 1] = z_loc[0, :]
-            Z_gen[:, t - 1] = z_gen_loc[0, :]
-            Obs[:, t - 1] = obs_loc[0, :]
-            Obs_scale[:, t - 1] = obs_scale[0, :]
-            Z_gen_scale[:, t - 1] = z_gen_scale[0, :]
+            
+            Z[:, t - 1, :] = z_loc[0, :]
+            
+            Z_gen[:, t - 1, :] = z_gen_loc[0, :]
+            Z_gen_scale[:, t - 1, :] = z_gen_scale[ 0, :]
+            
+            Obs[:, t - 1, :] = obs_loc[0, :]
+            Obs_scale[:, t - 1, :] = obs_scale[0, :]
+            
 
         return Z, Z_gen, Z_gen_scale, Obs, Obs_scale

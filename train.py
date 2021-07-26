@@ -1,15 +1,17 @@
 from comet_ml import Experiment
 
 import os
+from os.path import exists
+import logging
 import argparse
 import configparser
 import json
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 import torch
 from tqdm import tqdm
-import matplotlib as mpl
-import pyro
+
 from pyro.infer import (
     SVI,
     JitTrace_ELBO,
@@ -21,10 +23,14 @@ from pyro.optim import ClippedAdam
 
 # visualization
 from phys_data import TrajectoryDataset
-from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
+from models import Emitter, GatedTransition, Combiner, Combiner_new
+from models import RNNEncoder, ODEEncoder, SymplecticODEEncoder,LagrangianODEEncoder, BiRNNEncoder
+
 from dmm import DMM
-from utils import data_path_from_config
-from plot_utils import *
+from utils import data_path_from_config, tril_init, get_zero_grad_hook
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 
 # saves the model and optimizer states to disk
@@ -36,18 +42,32 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
         'loss': loss,
     }, os.path.join(save_path, 'checkpoint.pth'))
 
-
 def main(cfg):
-    hyper_params = vars(cfg)
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
-    experiment.log_parameters(hyper_params)
-
-    debug = False
-
     # add DLSC parameters like seed
-    seed = 42
-    torch.manual_seed(seed)
-    pyro.set_rng_seed(seed)
+    # seed = 42
+    # torch.manual_seed(seed)
+
+    hyper_params = {
+        # "seed": seed,
+        "sequence_length": cfg.seq_len,
+        "input_dim": cfg.input_dim,
+        "z_dim": cfg.z_dim,
+        "emission_dim": cfg.emission_dim,
+        "emission_layers": cfg.emission_layers,
+        "transmission_dim": cfg.transmission_dim,
+        "encoder_dim": cfg.encoder_dim,
+        "encoder_layers": cfg.encoder_layers,
+        "batch_size": cfg.batch_size,
+        "num_epochs": cfg.num_epochs,
+        "learning_rate": cfg.learning_rate
+    }
+
+    experiment = Experiment(
+        api_key="xc4Txf2ZWPNveg4veZsy5Hxzt",
+        project_name="general",
+        workspace="gamehere-007",
+    )
+    experiment.log_parameters(hyper_params)
 
     if args.headless:
         mpl.use('Agg')  # if you are on a headless machine
@@ -55,15 +75,17 @@ def main(cfg):
         mpl.use('TkAgg')
 
     # use gpu
+    cfg.cuda = 0
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
 
+    # load dataset
     run_dir = os.path.join(cfg.root_path, 'experiments')
+    obs_idx = [0]
 
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, cfg.config))
 
     exp_name = data_path_from_config(config)
-    obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
     # create experiment directory and save config
     now = datetime.now()
@@ -76,26 +98,16 @@ def main(cfg):
     states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
     forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
-    energy = np.load(os.path.join(cfg.data_dir, exp_name, 'energy.npy'))
-
-    # normalize
-    obs_mean = observations.mean(axis=(0, 1), keepdims=True)
-    obs_std = observations.std(axis=(0, 1), keepdims=True)
-    states_mean = states.mean(axis=(0, 1), keepdims=True)
-    states_std = states.std(axis=(0, 1), keepdims=True)
-    observations_normalize = (observations - obs_mean) / obs_std
-    states_normalize = (states - states_mean) / states_std
 
     n_exp = states.shape[0]
     observations_windowed = []
     states_windowed = []
     forces_windowed = []
     for t in range(observations.shape[1] - cfg.seq_len):
-        qqd_w = observations_normalize[:, t:t + cfg.seq_len + 1]
+        qqd_w = observations[:, t:t + cfg.seq_len + 1]
         observations_windowed.append(qqd_w[:, None])
-        qqd_w = states_normalize[:, t:t + cfg.seq_len + 1]
+        qqd_w = states[:, t:t + cfg.seq_len + 1]
         states_windowed.append(qqd_w[:, None])
-        # TODO Normalize forces ?
         qqd_w = forces[:, t:t + cfg.seq_len + 1]
         forces_windowed.append(qqd_w[:, None])
 
@@ -131,14 +143,42 @@ def main(cfg):
 
     # modules
     emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
-    transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
-    combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
-    encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
-                                   non_linearity='relu', batch_first=True,
-                                   rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                   integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
-                                   learn_kinetic=cfg.learn_kinetic,
-                                   dt=cfg.dt, discretization=cfg.discretization)
+
+    # force triangular structure
+    # emitter.apply(tril_init)
+    # mask = torch.tril(torch.ones_like(emitter.hidden_to_loc.weight))
+    # Register with hook
+    # emitter.hidden_to_loc.weight.register_hook(get_zero_grad_hook(mask))
+
+    transition = GatedTransition(cfg.z_dim, cfg.transmission_dim, cfg.dt)
+
+    """
+    # force triangular structure
+    transition.apply(tril_init)
+    mask = torch.tril(torch.ones_like(transition.lin_proposed_mean_z_to_z.weight))
+    transition.lin_proposed_mean_z_to_z.weight.register_hook(get_zero_grad_hook(mask))
+    """
+
+    # combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
+    combiner = Combiner_new(cfg.z_dim, cfg.encoder_dim, cfg.dt,device)    
+    # encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
+    #                                non_linearity='relu', batch_first=True,
+    #                                rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+    #                                dt=cfg.dt, discretization=cfg.discretization)
+    
+    
+    # encoder = RNNEncoder(cfg.input_dim, cfg.encoder_dim, non_linearity = "relu", 
+    #                         batch_first = True, num_layers = 1, dropout = 0.9, 
+    #                         seq_len = 10*(cfg.seq_len + 1)
+    #                     )        
+    # encoder = LagrangianODEEncoder(cfg.input_dim, cfg.z_dim, cfg.potential_hidden, cfg.potential_layers,
+    #                                 non_linearity='relu', batch_first=True,
+    #                                 rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+    #                                 dt=cfg.dt, discretization=cfg.discretization)    
+    encoder = BiRNNEncoder(cfg.input_dim, cfg.encoder_dim, 
+                           num_layers = 1, dropout = 0.9, 
+                            seq_len = 10*(cfg.seq_len + 1)
+                            )     
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, cfg.z_dim,
@@ -153,10 +193,27 @@ def main(cfg):
     adam = ClippedAdam(adam_params)
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
+    
+    def load_checkpoint(load_path):
+        # assert exists(cfg.load_model), \
+        #     "--load-model and/or --load-opt misspecified"
+        checkpoint = torch.load(load_path)
+        logging.info("loading model from %s..." % cfg.load_model)
+        vae.load_state_dict(checkpoint['model_state_dict'])
+        logging.info("loading optimizer states from %s..." % cfg.load_model)
+        adam.load(load_path)
+        # args.start_epoch = checkpoint['epoch'] + 1
+        logging.info("done loading model and optimizer states.")  
+        
+    if  cfg.load_model != '':
+        
+        load_path =  os.path.join(run_dir, exp_name, cfg.load_model,'checkpoint.pth')
+        load_checkpoint(load_path)
 
     with experiment.train():
         global_step = 0
         for epoch in range(cfg.num_epochs):
+            # torch.cuda.empty_cache()
             epoch_loss = 0
             for which_batch, sample in enumerate(tqdm(train_loader)):
                 if cfg.annealing_epochs > 0 and epoch < cfg.annealing_epochs:
@@ -170,13 +227,14 @@ def main(cfg):
                     annealing_factor = 1.0
 
                 mini_batch = sample['obs'].float().to(device)
+                # print(mini_batch)
                 mini_batch_mask = torch.ones(
                     [mini_batch.size(0), mini_batch.size(1)]).to(
                     device)  # assumption that all sequences have the same length
 
                 # do an actual gradient step
                 loss = svi.step(mini_batch, mini_batch_mask, annealing_factor)
-                epoch_loss += loss
+                epoch_loss += float(loss)
 
                 # record loss
                 global_step += 1
@@ -187,13 +245,12 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                if debug:
-                    break
-
+        
             epoch_loss /= len(train_dataset)
             print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
 
             if not epoch % cfg.validation_freq:
+            # if global_step % 100 == 0:    
                 vae.eval()
                 val_epoch_loss = 0
                 for sample in tqdm(val_loader):
@@ -202,8 +259,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    if debug:
-                        break
+                    #break
 
                 # record loss and save
                 val_epoch_loss /= len(val_dataset)
@@ -212,112 +268,173 @@ def main(cfg):
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
 
                 # Zhilu plot
-                n_re = 0
-                n_len = cfg.seq_len * 10
-                sample = np.expand_dims(observations_normalize[n_re], axis=0)
-                sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
+                n_re = 30
+                sample = np.expand_dims(observations[n_re], axis=0)
+                sample = torch.from_numpy(sample).float()
                 sample = sample.to(device)
+                
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
+                
+                n_dim = cfg.z_dim // 2
+                q = torch.squeeze(Z[:, :, :n_dim])
+                qd = torch.squeeze(Z[:, :, n_dim:])
+                
+                # out = vae.combiner.ode_func_combiner.H_grad_net(Z)
+                # out = vae.trans.ode_func_tran.H_grad_net(Z)
+                
+                # out = torch.squeeze(out)
+                # fig000 = plt.figure(figsize=(16, 7))
+                # plt.plot(out.detach(),label = "gradient H output")
+                # plt.legend()
+                # experiment.log_figure(figure=fig000, figure_name="gradient_H_output_{:02d}".format(epoch))                
+               
+                n_len = sample.shape[1]
+  
+                # T_e = vae.trans.ode_func_trans.T_net(qd)
+                T_e = torch.zeros(q.shape[0],1)
+                V_e = torch.zeros_like(T_e)
+                for i in range(q.shape[0]):
+                    T_e[i,:] = torch.sum(0.5 * qd[i,:] * qd[i,:])
+                    V_e[i,:] = vae.trans.ode_func_trans._potential_E(torch.unsqueeze(q[i,:],0))
 
-                # unormalize for plots
-                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
-                Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
-                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
-                Obs = Obs.detach().numpy() * obs_std + obs_mean
-                Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
-
-                # TODO make this for any number of states
-                # TODO get force derivatives
-                q = Z[n_re, :, :cfg.z_dim // 2]
-                qd = Z[n_re, :, cfg.z_dim // 2:]
-                qdot = qd
-                qdot = qdot[..., None]
-
-                m = np.eye(cfg.z_dim // 2)
-                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
-                latent_kinetic = latent_kinetic.flatten()
-
-                time_length = len(q)
-                t_vec = torch.arange(1, time_length + 1) * cfg.dt
-
-                if cfg.dissipative:
-                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
-                else:
-                    #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
-                    input_tensor = torch.from_numpy(q).float()
-
-                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
-
-                fig = simple_plot(
-                    x_axis=t_vec,
-                    values=[latent_kinetic,
-                            energy[n_re, :time_length, 0],
-                            latent_potential,
-                            energy[n_re, :time_length, 1]],
-                    names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
-                    title="Energy",
-                    debug=debug
-                )
-
-                experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
+                # V_e = vae.trans.ode_func_trans.V_net(q)
+                # V_e = vae.trans.ode_func_trans._potential_E(q)
+                total_e = T_e + V_e
+                print(T_e.size())
+                print(V_e.size())
+                
+                fig0 = plt.figure(figsize=(16, 7))
+                plt.plot(T_e.detach(),label = "T - kinetic energy")
+                plt.plot(V_e.detach(), label = "V - potential energy")
+                plt.plot(total_e.detach(), label = "T + V - total energy")
+                plt.plot((T_e - V_e).detach(), label = "T - V - lagrangian")
+                plt.legend()
+                experiment.log_figure(figure=fig0, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
                 z_true = states[..., :cfg.z_dim]
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
 
-                fig = grid_plot(
-                    x_axis=t_vec,
-                    values=[z_true, Z_gen],
-                    uncertainty=[None, Z_gen_scale],
-                    max_1=n_re,
-                    max_2=n_len,
-                    n_plots=cfg.z_dim,
-                    names=["reference", "generative model"],
-                    title="Learned Latent Space - Training epoch =" + " " + str(epoch),
-                    y_label=Ylabels,
-                    debug=debug
-                )
+                obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
-                experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
+                fig1 = plt.figure(figsize=(16, 16))
+                plt.ioff()
+                for i in range(cfg.z_dim ):
+                    ax = plt.subplot(cfg.z_dim, 2, 2*i + 1)
+                    
+                    plt.plot(z_true[n_re, :n_len, i], color="silver", lw=1.5, label="reference")
+                    plt.legend()
+                    
+                    
+                    ax = plt.subplot(cfg.z_dim, 2,2*i + 2)
+                    plt.plot(Z[0, :, i].data, label="inference")
+                    plt.plot(Z_gen[0, :, i].data, label="generative model")
+                    plt.legend()
+                experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
+                
+                
+                fig11 = plt.figure(figsize=(16, 16))
+                plt.ioff()
+                for i in range(n_dim ):
+                    ax = plt.subplot(n_dim , 2, 2*i + 1)
+                    
+                    plt.plot(z_true[n_re, :n_len, i], z_true[n_re, :n_len, i+ n_dim],
+                             color="silver", lw=1.5, label="reference")
+                    plt.legend()
+                    
+                    
+                    ax = plt.subplot(n_dim, 2,2*i + 2)
+                    plt.plot(Z[0, :, i].data, Z[0, :, i + n_dim].data, label="inference")
+                    # plt.plot(Z_gen[0, :, i].data, label="generative model")
+                    plt.legend()
+                experiment.log_figure(figure=fig11, figure_name="phase_plot_{:02d}".format(epoch))   
+
+                fig22 = plt.figure(figsize=(16, 16))
+                a = [3,1]
+                plt.ioff()
+                for i in range(n_dim ):
+                    ax = plt.subplot(n_dim , 2, 2*i + 1)
+                    
+                    plt.plot(z_true[n_re, :n_len, i], z_true[n_re, :n_len, i+ n_dim],
+                             color="silver", lw=1.5, label="reference")
+                    plt.legend()
+                    
+                    
+                    ax = plt.subplot(n_dim, 2,2*i + 2)
+                    plt.plot(Z[0, :, i].data, Z[0, :, i + a[i]].data, label="inference")
+                    # plt.plot(Z_gen[0, :, i].data, label="generative model")
+                    plt.legend()
+                experiment.log_figure(figure=fig22, figure_name="phase_plot2_{:02d}".format(epoch))                    
+
+                # fig1 = plt.figure(figsize=(16, 7))
+                # plt.ioff()
+                # for i in range(cfg.z_dim):
+                #     ax = plt.subplot(cfg.z_dim // 2, cfg.z_dim // (cfg.z_dim // 2), i + 1)
+                #     plt.plot(z_true[n_re, :n_len, i], color="silver", lw=2.5, label="reference")
+                #     plt.plot(Z[n_re, :, i].data, label="inference")
+                #     plt.plot(Z_gen[n_re, :, i].data, label="generative model")
+
+                #     # plot observations if needed
+                #     if i in obs_idx:
+                #         plt.plot(Obs[n_re, :n_len, i].data, label="generated observations")
+                #         plt.plot(observations[n_re, :n_len, i], label="observations")
+                #         lower_bound = Obs[n_re, :n_len, i].data - Obs_scale[n_re, :n_len, i].data
+                #         upper_bound = Obs[n_re, :n_len, i].data + Obs_scale[n_re, :n_len, i].data
+                #         ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
+                #                         facecolor='yellow', alpha=0.5,
+                #                         label='1 sigma range')
+                #     plt.legend()
+                #     plt.xlabel("$k$")
+                #     plt.ylabel(Ylabels[i])
+
+                # fig1.suptitle('Learned Latent Space - Training epoch =' + "" + str(epoch))
+                # plt.tight_layout()
+                # # plt.show()
+                # experiment.log_figure(figure=fig1, figure_name="latent_{:02d}".format(epoch))
 
                 Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
                                                                             range(cfg.z_dim // 2)]
-                fig = grid_plot(
-                    x_axis=t_vec,
-                    values=[Obs, observations],
-                    uncertainty=[Obs_scale, None],
-                    max_1=n_re,
-                    max_2=n_len,
-                    n_plots=cfg.input_dim,
-                    names=["generated observations", "true observations"],
-                    title='Observations - Training epoch =' + "" + str(epoch),
-                    y_label=Ylabels,
-                    debug=debug
-                )
+                fig2 = plt.figure(figsize=(16, 7))
+                plt.ioff()
+                for i in range(cfg.input_dim):
+                    ax = plt.subplot(cfg.input_dim // 2, cfg.input_dim // (cfg.input_dim // 2), i + 1)
 
-                experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
+                    plt.plot(Obs[0, :n_len, i].data, label="generated observations")
+                    plt.plot(observations[n_re, :n_len, i], label="observations")
+                    lower_bound = Obs[0, :n_len, i].data - Obs_scale[0, :n_len, i].data
+                    upper_bound = Obs[0, :n_len, i].data + Obs_scale[0, :n_len, i].data
+                    ax.fill_between(np.arange(0, n_len, 1), lower_bound, upper_bound,
+                                    facecolor='yellow', alpha=0.5,
+                                    label='1 sigma range')
+                    plt.legend()
+                    plt.xlabel("$k$")
+                    plt.ylabel(Ylabels[i])
 
-                fig = matrix_plot(
-                    matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
-                    title="Emission matrix at epoch = " + str(epoch),
-                    debug=debug
-                )
+                fig2.suptitle('Observations - Training epoch =' + "" + str(epoch))
+                plt.tight_layout()
+                # plt.show()
+                experiment.log_figure(figure=fig2, figure_name="observations_{:02d}".format(epoch))
 
-                experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
+                # fig3 = plt.figure(figsize=(16, 7))
+                # plt.ioff()
+                # c_mat = vae.emitter.hidden_to_loc.weight.detach().numpy()
+                # plt.imshow(c_mat)
+                # for i in np.arange(np.shape(c_mat)[0]):  # over all rows of count
+                #     for j in np.arange(np.shape(c_mat)[1]):  # over all cols of count
+                #         text = plt.text(j, i, str(round(c_mat[i, j], 2)), ha="center", va="center", color="r")
+                # # plt.show()
+                # experiment.log_figure(figure=fig3, figure_name="c_mat_{:02d}".format(epoch))
 
-                A = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
-                fig = matrix_plot(
-                    matrix=A,
-                    title="Transmission matrix at epoch = " + str(epoch),
-                    debug=debug
-                )
-
-                experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
-
-                mass = vae.encoder.latent_func.m_1.data
-                for i in range(cfg.z_dim //2):
-                    experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
+                # fig4 = plt.figure(figsize=(16, 7))
+                # plt.ioff()
+                # a_mat = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
+                # plt.imshow(a_mat)
+                # for i in np.arange(np.shape(a_mat)[0]):  # over all rows of count
+                #     for j in np.arange(np.shape(a_mat)[1]):  # over all cols of count
+                #         text = plt.text(j, i, str(round(a_mat[i, j], 2)), ha="center", va="center", color="r")
+                # # plt.show()
+                # experiment.log_figure(figure=fig3, figure_name="a_mat_{:02d}".format(epoch))
 
                 vae.train()
 
@@ -325,6 +442,7 @@ def main(cfg):
 
 
 if __name__ == '__main__':
+
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
@@ -332,18 +450,16 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
     parser.add_argument('-in', '--input-dim', type=int, default=4)
     parser.add_argument('-z', '--z-dim', type=int, default=4)
-    parser.add_argument('-e', '--emission-dim', type=int, default=16)
-    parser.add_argument('-ne', '--emission-layers', type=int, default=0)
-    parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
+    parser.add_argument('-e', '--emission-dim', type=int, default= 32)
+    parser.add_argument('-ne', '--emission-layers', type=int, default=1)
+    parser.add_argument('-tr', '--transmission-dim', type=int, default=30)
     parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
+    parser.add_argument('-enc', '--encoder-dim', type=int, default= 64)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
-    parser.add_argument('--dissipative', action='store_true')
-    parser.add_argument('-dt', '--dt', type=float, default=0.1)
-    parser.add_argument('-disc', '--discretization', type=int, default=3)
-    parser.add_argument('-n', '--num-epochs', type=int, default=10)
+    parser.add_argument('-dt', '--dt', type=float, default=0.05)
+    parser.add_argument('-disc', '--discretization', type=int, default = 1)
+    parser.add_argument('-n', '--num-epochs', type=int, default=500)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
     parser.add_argument('-lr', '--learning-rate', type=float, default=1e-3)
     parser.add_argument('-b1', '--beta1', type=float, default=0.96)
@@ -351,18 +467,31 @@ if __name__ == '__main__':
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
     parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
-    parser.add_argument('-bs', '--batch-size', type=int, default=256)
-    parser.add_argument('-sq', '--seq-len', type=int, default=50)
+    parser.add_argument('-bs', '--batch-size', type=int, default= 64)
+    parser.add_argument('-sq', '--seq-len', type=int, default=39)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=2)
-    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.5)
+    parser.add_argument('-maf', '--minimum-annealing-factor', type=float, default=0.8)
     parser.add_argument('-rdr', '--encoder-dropout-rate', type=float, default=0.1)
     parser.add_argument('-iafs', '--num-iafs', type=int, default=0)
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
-    parser.add_argument('--learn-kinetic', action='store_true')
-    parser.add_argument('--cuda', action='store_true')
+    # parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('-cuda','--cuda', type=int, default=1)    
     parser.add_argument('--comet', action='store_true')
     parser.add_argument('--headless', action='store_true')
+    
+    load_models = 0
+    
+    if load_models == 1:    
+       load_folder_name = "22-07-2021_21-59-51" 
+    else: 
+       load_folder_name = ""  
+       
+    parser.add_argument('-lmod', '--load-model', type=str, default= load_folder_name)    
     args = parser.parse_args()
 
     main(args)
+    
+    
+    
+    
