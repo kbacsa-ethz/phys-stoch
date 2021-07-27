@@ -289,9 +289,14 @@ class PotentialODEfunc(nn.Module):
 
 class GradPotentialODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20, hlayers=0):
+    def __init__(self, latent_dim=4, nhidden=20, hlayers=0, learn_kinetic=False):
         super(GradPotentialODEfunc, self).__init__()
         self.tanh = nn.Tanh()
+
+        if learn_kinetic:
+            self.m_1 = nn.Parameter(torch.ones(latent_dim), requires_grad=True)
+        else:
+            self.m_1 = torch.ones(latent_dim)
 
         self.linears = nn.ModuleList([])
         self.linears.append(nn.Linear(latent_dim, nhidden))
@@ -308,6 +313,9 @@ class GradPotentialODEfunc(nn.Module):
         for layer in range(self.nlayers):
             out = self.tanh(self.linears[layer](out))
         out = self.fc(out)
+
+        # multiply by inverse of mass
+        out = torch.nn.functional.linear(out, torch.diag(self.m_1))
         return out
 
 
@@ -328,7 +336,7 @@ class SymplecticODEEncoder(nn.Module):
             self.latent_func = PotentialODEfunc((z_dim//2)+1, hidden_dim, n_layers, learn_kinetic)  # TODO temporary fix for verlet
 
         else:
-            self.latent_func = PotentialODEfunc(z_dim//2, hidden_dim, n_layers, learn_kinetic)  # TODO temporary fix for verlet
+            self.latent_func = GradPotentialODEfunc(z_dim//2, hidden_dim, n_layers, learn_kinetic)  # TODO temporary fix for verlet
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
