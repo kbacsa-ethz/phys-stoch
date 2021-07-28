@@ -42,7 +42,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = True
+    debug = False
 
     # add DLSC parameters like seed
     seed = 42
@@ -246,8 +246,8 @@ def main(cfg):
                     #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
 
-                #latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
-                latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
+                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
+                #latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
 
                 fig = simple_plot(
                     x_axis=t_vec,
