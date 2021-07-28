@@ -248,6 +248,7 @@ def main(cfg):
 
                 latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
                 #latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
+                latent_potential /= latent_potential.max()
 
                 fig = simple_plot(
                     x_axis=t_vec,
