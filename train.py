@@ -219,6 +219,10 @@ def main(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
+                mse_loss = ((sample[:, 1:, :] - Obs)**2).mean().item()
+                experiment.log_metric("mse_loss", mse_loss, step=global_step)
+                print("Mean error is {}".format(mse_loss))
+
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
                 Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
@@ -332,14 +336,14 @@ if __name__ == '__main__':
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
     parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
-    parser.add_argument('-in', '--input-dim', type=int, default=40)
-    parser.add_argument('-z', '--z-dim', type=int, default=40)
+    parser.add_argument('-in', '--input-dim', type=int, default=4)
+    parser.add_argument('-z', '--z-dim', type=int, default=4)
     parser.add_argument('-e', '--emission-dim', type=int, default=32)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=40)
+    parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')

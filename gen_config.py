@@ -31,7 +31,7 @@ def main(cfg):
 
     with open(os.path.join(args.rp, "config", "{}springmass_{}.ini".format(cfg.ndof, cfg.type)), "w") as filep:
         filep.write("[System]\n")
-        filep.write("Name = {}springmass\n".format(cfg.ndof))
+        filep.write("Name = {}springmass_{}\n".format(cfg.ndof, cfg.type))
         filep.write("M = " + m_string + "\n")
         filep.write("C = " + c_string + "\n")
         filep.write("K = " + k_string + "\n")
