@@ -339,7 +339,7 @@ if __name__ == '__main__':
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
     parser.add_argument('-pl', '--potential-layers', type=int, default=0)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
+    parser.add_argument('-enc', '--encoder-dim', type=int, default=40)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')
