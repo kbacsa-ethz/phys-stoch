@@ -331,7 +331,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config', type=str, default='config/20springmass_free.ini')
+    parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
     parser.add_argument('-in', '--input-dim', type=int, default=40)
     parser.add_argument('-z', '--z-dim', type=int, default=40)
     parser.add_argument('-e', '--emission-dim', type=int, default=32)

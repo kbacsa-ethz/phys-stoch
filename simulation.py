@@ -133,7 +133,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/20springmass_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

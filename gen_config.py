@@ -4,16 +4,15 @@ import argparse
 
 
 def main(cfg):
-
     # random masses between 0 and 2
     if cfg.lk:
-        masses = np.around(2*np.random.rand(cfg.ndof), 2)
+        masses = np.around(2 * np.random.rand(cfg.ndof), 2)
     else:
         masses = np.array([1., 1.])
 
     m = np.diag(masses)
 
-    springs = np.around(2*np.random.rand(cfg.ndof+1), 2)
+    springs = np.around(2 * np.random.rand(cfg.ndof + 1), 2)
     spring_diagonal = springs[:-1] + springs[1:]
     spring_lu = -springs[1:-1]
     k = np.diag(spring_diagonal) + np.diag(spring_lu, 1) + np.diag(spring_lu, -1)
@@ -48,7 +47,7 @@ def main(cfg):
         filep.write("[Simulation]\n")
         filep.write("Seed = 42\n")
         filep.write("Iterations = 500\n")
-        filep.write("Observations = " + ",".join(list(map(str, range(2*cfg.ndof)))) + "\n")
+        filep.write("Observations = " + ",".join(list(map(str, range(2 * cfg.ndof)))) + "\n")
         filep.write("Noise = " + ",".join([str(cfg.noise)] * 2 * cfg.ndof) + "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
@@ -70,6 +69,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-
-
-
