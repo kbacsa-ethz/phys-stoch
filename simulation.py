@@ -57,7 +57,7 @@ def main(ag, cfg):
     np.random.seed(seed)
 
     experiment_tree = data_path_from_config(cfg)
-    save_path = os.path.join(ag.root_path, 'data', experiment_tree)
+    save_path = os.path.join(ag.root_path, 'data', system_type)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
     tics = np.linspace(0., t_max, num=int(t_max / dt), endpoint=False)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_dissipative.ini')
+    parser.add_argument('--config-path', type=str, default='config/20springmass_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
