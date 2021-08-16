@@ -47,7 +47,7 @@ def main(cfg):
         filep.write("[Simulation]\n")
         filep.write("Seed = 42\n")
         filep.write("Iterations = 500\n")
-        filep.write("Observations = " + ",".join(list(map(str, range(2 * cfg.ndof)))) + "\n")
+        filep.write("Observations = " + ",".join(list(map(str, range(cfg.ndof))) + list(map(str, range(2 * cfg.ndof, 3 * cfg.ndof))))+ "\n")
         filep.write("Noise = " + ",".join([str(cfg.noise)] * 2 * cfg.ndof) + "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
