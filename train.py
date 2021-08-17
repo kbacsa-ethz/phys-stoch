@@ -42,7 +42,7 @@ def main(cfg):
     experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
     experiment.log_parameters(hyper_params)
 
-    debug = False
+    debug = True
 
     # add DLSC parameters like seed
     seed = 42
@@ -219,12 +219,16 @@ def main(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
-                mse_loss = ((sample[:, 1:, :] - Obs)**2).mean().item()
+                ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
+                ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
+                ground_truth = ground_truth.to(device)
+                mse_loss = ((ground_truth - Obs) ** 2).mean().item()
                 experiment.log_metric("mse_loss", mse_loss, step=global_step)
                 print("Mean error is {}".format(mse_loss))
 
                 # unormalize for plots
-                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
+                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[...,
+                                                                       :cfg.z_dim]  # TODO Needs normalization that makes more sense
                 Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
                 Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
@@ -247,11 +251,11 @@ def main(cfg):
                 if cfg.dissipative:
                     input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
                 else:
-                    #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
 
                 latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
-                #latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
+                # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
                 fig = simple_plot(
@@ -322,7 +326,7 @@ def main(cfg):
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
                 mass = vae.encoder.latent_func.m_1.data
-                for i in range(cfg.z_dim //2):
+                for i in range(cfg.z_dim // 2):
                     experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
 
                 vae.train()
