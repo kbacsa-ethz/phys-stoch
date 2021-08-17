@@ -33,11 +33,11 @@ class Emitter(nn.Module):
         if h_layers == 0:
             self.hidden_to_loc = nn.Linear(z_dim, input_dim, bias=False)
             self.hidden_to_scale = nn.Linear(z_dim, input_dim, bias=False)
-            self.hidden_to_scale.weight.data = torch.zeros(z_dim, input_dim)
+            self.hidden_to_scale.weight.data = torch.zeros(input_dim, z_dim)
         else:
             self.hidden_to_loc = nn.Linear(emission_dim, input_dim, bias=False)
             self.hidden_to_scale = nn.Linear(emission_dim, input_dim, bias=False)
-            self.hidden_to_scale.weight.data = torch.zeros(emission_dim, input_dim)
+            self.hidden_to_scale.weight.data = torch.zeros(input_dim, emission_dim)
 
         self.linears = nn.ModuleList([])
         for layer in range(h_layers):
