@@ -4,11 +4,12 @@ import argparse
 
 
 def main(cfg):
+
     # random masses between 0 and 2
     if cfg.lk:
-        masses = np.around(2 * np.random.rand(cfg.ndof), 2)
+        masses = np.around(cfg.ndof * np.random.rand(cfg.ndof), 2)
     else:
-        masses = np.array([1., 1.])
+        masses = np.array(cfg.ndof * [1.])
 
     m = np.diag(masses)
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('-rp', type=str, default='.')
     parser.add_argument('-type', type=str, default='free')
-    parser.add_argument('-ndof', type=int, default=2)
+    parser.add_argument('-ndof', type=int, default=3)
     parser.add_argument('-noise', type=float, default=0.05)
     parser.add_argument('-lk', action='store_true')
     args = parser.parse_args()
