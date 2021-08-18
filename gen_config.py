@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import random
 import argparse
 
 
@@ -30,6 +31,12 @@ def main(cfg):
     k_string = ",".join(list(map(str, k.flatten())))
     c_string = ",".join(list(map(str, c.flatten())))
 
+    observables = list(map(str, range(3 * cfg.ndof)))
+    if cfg.select == "random":
+        observables = random.sample(observables, int(len(observables) * 0.75))
+    else:
+        observables = observables[:cfg.ndof] + observables[2*cfg.ndof:]
+
     with open(os.path.join(args.rp, "config", "{}springmass_{}.ini".format(cfg.ndof, cfg.type)), "w") as filep:
         filep.write("[System]\n")
         filep.write("Name = {}springmass_{}\n".format(cfg.ndof, cfg.type))
@@ -48,7 +55,7 @@ def main(cfg):
         filep.write("[Simulation]\n")
         filep.write("Seed = 42\n")
         filep.write("Iterations = 500\n")
-        filep.write("Observations = " + ",".join(list(map(str, range(cfg.ndof))) + list(map(str, range(2 * cfg.ndof, 3 * cfg.ndof))))+ "\n")
+        filep.write("Observations = " + ",".join(observables)+ "\n")
         filep.write("Noise = " + ",".join([str(cfg.noise)] * 2 * cfg.ndof) + "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
@@ -64,6 +71,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('-rp', type=str, default='.')
     parser.add_argument('-type', type=str, default='free')
+    parser.add_argument('-select', type=str, default='random')
     parser.add_argument('-ndof', type=int, default=3)
     parser.add_argument('-noise', type=float, default=0.05)
     parser.add_argument('-lk', action='store_true')
