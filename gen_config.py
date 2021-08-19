@@ -24,7 +24,7 @@ def main(cfg):
     k = np.diag(spring_diagonal) + np.diag(spring_lu, 1) + np.diag(spring_lu, -1)
 
     if cfg.type == 'dissipative':
-        capacitors = np.around(2 * np.random.rand(cfg.ndof + 1), 3)
+        capacitors = np.around(0.5 * np.random.rand(cfg.ndof + 1), 3)
         capacitors_diagonal = capacitors[:-1] + capacitors[1:]
         capacitors_lu = -capacitors[1:-1]
         c = np.diag(capacitors_diagonal) + np.diag(capacitors_lu, 1) + np.diag(capacitors_lu, -1)
