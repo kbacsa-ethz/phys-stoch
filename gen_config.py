@@ -4,6 +4,10 @@ import random
 import argparse
 
 
+np.random.seed(42)
+random.seed(42)
+
+
 def main(cfg):
 
     # random masses between 0 and 2
