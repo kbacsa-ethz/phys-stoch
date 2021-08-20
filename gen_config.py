@@ -18,7 +18,9 @@ def main(cfg):
 
     m = np.diag(masses)
 
-    springs = np.sort(np.around(2 * np.random.rand(cfg.ndof + 1), 2))[::-1]
+    #springs = np.sort(np.around(2 * np.random.rand(cfg.ndof + 1), 2))[::-1]
+    springs = np.array([3., .5, 0.])
+
     spring_diagonal = springs[:-1] + springs[1:]
     spring_lu = -springs[1:-1]
     k = np.diag(spring_diagonal) + np.diag(spring_lu, 1) + np.diag(spring_lu, -1)
