@@ -14,6 +14,7 @@ def data_path_from_config(cfg):
         cfg['Simulation']['Noise'].replace('.', '-').replace(',', '_'),
     ]
     )
+    data_path = cfg['System']['Name']
     return data_path
 
 

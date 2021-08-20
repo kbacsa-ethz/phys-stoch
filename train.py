@@ -60,7 +60,7 @@ def main(cfg):
     run_dir = os.path.join(cfg.root_path, 'experiments')
 
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, cfg.config))
+    config.read(os.path.join(args.root_path, cfg.config_path))
 
     exp_name = data_path_from_config(config)
     obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
@@ -130,10 +130,12 @@ def main(cfg):
     forces_windowed = None
 
     # modules
-    emitter = Emitter(cfg.input_dim, cfg.z_dim, cfg.emission_dim, cfg.emission_layers)
-    transition = GatedTransition(cfg.z_dim, cfg.transmission_dim)
-    combiner = Combiner(cfg.z_dim, cfg.encoder_dim)
-    encoder = SymplecticODEEncoder(cfg.input_dim, cfg.encoder_dim, cfg.potential_hidden, cfg.potential_layers,
+    input_dim = len(obs_idx)
+    z_dim = int(states.shape[-1] * 2 / 3)
+    emitter = Emitter(input_dim, z_dim, cfg.emission_dim, cfg.emission_layers)
+    transition = GatedTransition(z_dim, cfg.transmission_dim)
+    combiner = Combiner(z_dim, z_dim)
+    encoder = SymplecticODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
                                    non_linearity='relu', batch_first=True,
                                    rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
                                    integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
@@ -141,8 +143,8 @@ def main(cfg):
                                    dt=cfg.dt, discretization=cfg.discretization)
 
     # create model
-    vae = DMM(emitter, transition, combiner, encoder, cfg.z_dim,
-              (cfg.encoder_layers, cfg.batch_size, cfg.encoder_dim))
+    vae = DMM(emitter, transition, combiner, encoder, z_dim,
+              (cfg.encoder_layers, cfg.batch_size, z_dim))
     vae.to(device)
 
     # setup optimizer
@@ -219,21 +221,28 @@ def main(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
+                ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
+                ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
+                ground_truth = ground_truth.to(device)
+                mse_loss = ((ground_truth - Obs) ** 2).mean().item()
+                experiment.log_metric("mse_loss", mse_loss, step=global_step)
+                print("Mean error is {}".format(mse_loss))
+
                 # unormalize for plots
-                Z = Z.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]  # TODO Needs normalization that makes more sense
-                Z_gen = Z_gen.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
-                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :cfg.z_dim] + states_mean[..., :cfg.z_dim]
+                Z = Z.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
+                Z_gen = Z_gen.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
+                Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
                 # TODO make this for any number of states
                 # TODO get force derivatives
-                q = Z[n_re, :, :cfg.z_dim // 2]
-                qd = Z[n_re, :, cfg.z_dim // 2:]
+                q = Z[n_re, :, :z_dim // 2]
+                qd = Z[n_re, :, z_dim // 2:]
                 qdot = qd
                 qdot = qdot[..., None]
 
-                m = np.eye(cfg.z_dim // 2)
+                m = np.eye(z_dim // 2)
                 latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
                 latent_kinetic = latent_kinetic.flatten()
 
@@ -243,11 +252,11 @@ def main(cfg):
                 if cfg.dissipative:
                     input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
                 else:
-                    #input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
 
                 latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
-                #latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
+                # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
                 fig = simple_plot(
@@ -264,40 +273,37 @@ def main(cfg):
                 experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
-                z_true = states[..., :cfg.z_dim]
-                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["udot_" + str(i) for i in
-                                                                            range(cfg.z_dim // 2)]
-
+                z_true = states[..., :z_dim]
+                Ylabels = ["u_" + str(i) for i in range(z_dim // 2)] + ["udot_" + str(i) for i in
+                                                                        range(z_dim // 2)]
                 fig = grid_plot(
                     x_axis=t_vec,
                     values=[z_true, Z_gen],
                     uncertainty=[None, Z_gen_scale],
                     max_1=n_re,
                     max_2=n_len,
-                    n_plots=cfg.z_dim,
+                    n_plots=z_dim,
                     names=["reference", "generative model"],
                     title="Learned Latent Space - Training epoch =" + " " + str(epoch),
                     y_label=Ylabels,
                     debug=debug
                 )
-
                 experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
-                Ylabels = ["u_" + str(i) for i in range(cfg.z_dim // 2)] + ["uddot_" + str(i) for i in
-                                                                            range(cfg.z_dim // 2)]
+                total_labels = ["u_" + str(i) for i in range(z_dim//2)] + ["udot_" + str(i) for i in range(z_dim//2)] + ["uddot_" + str(i) for i in range(z_dim//2)]
+                obs_labels = [total_labels[i] for i in obs_idx]
                 fig = grid_plot(
                     x_axis=t_vec,
                     values=[Obs, observations],
                     uncertainty=[Obs_scale, None],
                     max_1=n_re,
                     max_2=n_len,
-                    n_plots=cfg.input_dim,
+                    n_plots=input_dim,
                     names=["generated observations", "true observations"],
                     title='Observations - Training epoch =' + "" + str(epoch),
-                    y_label=Ylabels,
+                    y_label=obs_labels,
                     debug=debug
                 )
-
                 experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
 
                 fig = matrix_plot(
@@ -305,7 +311,6 @@ def main(cfg):
                     title="Emission matrix at epoch = " + str(epoch),
                     debug=debug
                 )
-
                 experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
                 A = vae.trans.lin_proposed_mean_z_to_z.weight.detach().numpy()
@@ -314,11 +319,10 @@ def main(cfg):
                     title="Transmission matrix at epoch = " + str(epoch),
                     debug=debug
                 )
-
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
                 mass = vae.encoder.latent_func.m_1.data
-                for i in range(cfg.z_dim //2):
+                for i in range(z_dim // 2):
                     experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
 
                 vae.train()
@@ -331,15 +335,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config', type=str, default='config/2springmass_free.ini')
-    parser.add_argument('-in', '--input-dim', type=int, default=4)
-    parser.add_argument('-z', '--z-dim', type=int, default=4)
+    parser.add_argument('--config-path', type=str, default='config/2springmass_free.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
-    parser.add_argument('-pl', '--potential-layers', type=int, default=0)
-    parser.add_argument('-enc', '--encoder-dim', type=int, default=4)
+    parser.add_argument('-pl', '--potential-layers', type=int, default=2)
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')
