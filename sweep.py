@@ -17,7 +17,7 @@ def sweep(cfg):
             val_loss = train(cfg)
             aic = 2 * param_value - 2 * np.log(val_loss)
             print("AIC for {} of value {} is {}".format(cfg.parameter, param_value, aic))
-            filep.write("{}:{:.2f}\n".format(param_value, aic))
+            filep.write("{},{:.2f}\n".format(param_value, aic))
 
     # loop at get AIC
     return 0
