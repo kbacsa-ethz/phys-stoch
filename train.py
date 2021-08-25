@@ -325,7 +325,7 @@ def train(cfg):
 
                 vae.train()
 
-    return val_epoch_loss
+    return mse_loss
 
 
 if __name__ == '__main__':
