@@ -21,6 +21,7 @@ def plot_sweep(cfg):
 
     x = data[0]
     y = data[1]
+    z = data[2]
 
     fig = plt.figure(figsize=(16, 7))
     plt.title(cfg.parameter)
@@ -29,6 +30,12 @@ def plot_sweep(cfg):
     plt.ylabel("AIC")
     experiment.log_figure(figure=fig, figure_name=cfg.parameter)
 
+    fig = plt.figure(figsize=(16, 7))
+    plt.title(cfg.parameter)
+    plt.plot(x, z, 'r')
+    plt.xlabel("parameter value")
+    plt.ylabel("MSE")
+    experiment.log_figure(figure=fig, figure_name=cfg.parameter)
     return 0
 
 

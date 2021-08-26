@@ -7,7 +7,7 @@ from train import train
 
 def sweep(cfg):
     # Only look at early steps
-    setattr(cfg, "num_epochs", 3)
+    setattr(cfg, "num_epochs", 5)
 
     Path(os.path.join(cfg.root_path, "sweeps")).mkdir(parents=True, exist_ok=True)
 
@@ -17,7 +17,8 @@ def sweep(cfg):
             val_loss = train(cfg)
             aic = 2 * param_value - 2 * np.log(val_loss)
             print("AIC for {} of value {} is {}".format(cfg.parameter, param_value, aic))
-            filep.write("{},{:.2f}\n".format(param_value, aic))
+            print("MSE loss for {} of value {} is {}".format(cfg.parameter, param_value, val_loss))
+            filep.write("{},{:.2f},{:.2f}\n".format(param_value, aic, val_loss))
 
     # loop at get AIC
     return 0
