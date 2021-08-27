@@ -351,7 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('-b2', '--beta2', type=float, default=0.999)
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
-    parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
+    parser.add_argument('-wd', '--weight-decay', type=float, default=0.01)
     parser.add_argument('-bs', '--batch-size', type=int, default=256)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=2)
