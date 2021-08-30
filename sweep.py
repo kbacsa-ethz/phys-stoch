@@ -7,14 +7,18 @@ from train import train
 
 def sweep(cfg):
     # Only look at early steps
-    setattr(cfg, "num_epochs", 5)
+    setattr(cfg, "num_epochs", 2)
 
     Path(os.path.join(cfg.root_path, "sweeps")).mkdir(parents=True, exist_ok=True)
 
     with open(os.path.join(cfg.root_path, "sweeps", "{}.txt".format(cfg.parameter)), "w") as filep:
         for param_value in range(cfg.sweep_min, cfg.sweep_max, cfg.sweep_step):
             setattr(cfg, cfg.parameter, param_value)
+            setattr(cfg, "debug", True)
             val_loss = train(cfg)
+
+            print(val_loss)
+
             aic = 2 * param_value - 2 * np.log(val_loss)
             print("AIC for {} of value {} is {}".format(cfg.parameter, param_value, aic))
             print("MSE loss for {} of value {} is {}".format(cfg.parameter, param_value, val_loss))
