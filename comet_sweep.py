@@ -142,7 +142,7 @@ def evaluate(experiment, vae, svi, val_loader, states_normalize, observations_no
     mse_loss = ((ground_truth - Obs) ** 2).mean().item()
     experiment.log_metric("mse_loss", mse_loss)
     print("Mean error is {}".format(mse_loss))
-    return mse_loss
+    return val_epoch_loss, mse_loss
 
 
 def get_dataset(cfg):
@@ -321,8 +321,9 @@ if __name__ == '__main__':
         svi = train(experiment, model, loader_train)
 
         # How well did it do?
-        mse = evaluate(experiment, model, svi, loader_test, states_normalize, observations_normalize)
+        loss, mse = evaluate(experiment, model, svi, loader_test, states_normalize, observations_normalize)
         param_line["mse"] = mse
+        param_line["loss"] = loss
 
         result = json.dumps(param_line) + "\n"
 
