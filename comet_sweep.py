@@ -3,6 +3,7 @@ import comet_ml
 import argparse
 import configparser
 import os
+import json
 import numpy as np
 import matplotlib as mpl
 import torch
@@ -141,6 +142,7 @@ def evaluate(experiment, vae, svi, val_loader, states_normalize, observations_no
     mse_loss = ((ground_truth - Obs) ** 2).mean().item()
     experiment.log_metric("mse_loss", mse_loss)
     print("Mean error is {}".format(mse_loss))
+    return mse_loss
 
 
 def get_dataset(cfg):
@@ -272,12 +274,12 @@ if __name__ == '__main__':
         "spec": {"maxCombo": 10, "objective": "minimize", "metric": "loss", "seed": seed},
         "parameters": {
             # sweep parameters
-            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 8, "max": 40},
-            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 10},
-            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 8, "max": 64},
+            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 10, "max": 20},
+            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 3},
+            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 20, "max": 40},
             "potential_hidden": {"type": "integer", "scalingType": "linear", "min": 10, "max": 100},
-            "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 10},
-            "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 10},
+            "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
+            "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 1, "max": 5},
             # constant parameters
             "input_dim": {"type": "discrete", "values": [4]},
             "z_dim": {"type": "discrete", "values": [4]},
@@ -286,7 +288,7 @@ if __name__ == '__main__':
             "learn_kinetic": {"type": "discrete", "values": [False]},
             "dt": {"type": "discrete", "values": [0.1]},
             "discretization": {"type": "discrete", "values": [3]},
-            "epochs": {"type": "discrete", "values": [5]},
+            "epochs": {"type": "discrete", "values": [3]},
             "batch_size": {"type": "discrete", "values": [256]},
             "learning_rate": {"type": "discrete", "values": [1e-3]},
             "beta1": {"type": "discrete", "values": [0.96]},
@@ -301,10 +303,16 @@ if __name__ == '__main__':
     }
 
     opt = comet_ml.Optimizer(config, api_key="Bm8mJ7xbMDa77te70th8PNcT8")
+    param_sweep = ["emission_dim", "emission_layers", "transmission_dim", "potential_hidden", "potential_layers", "encoder_layers"]
+
+    file_path = os.path.join(cfg.root_path, "sweeps", "2dof.txt")
+
+    if not os.path.exists(file_path):
+        os.mknod(file_path)
 
     for experiment in opt.get_experiments(project_name="phys-sweep"):
-        # Log parameters, or others:
-        experiment.log_parameter("epochs", 5)
+
+        param_line = {par: experiment.get_parameter(par) for par in param_sweep}
 
         # Build the model:
         model = build_model_graph(experiment)
@@ -313,7 +321,14 @@ if __name__ == '__main__':
         svi = train(experiment, model, loader_train)
 
         # How well did it do?
-        evaluate(experiment, model, svi, loader_test, states_normalize, observations_normalize)
+        mse = evaluate(experiment, model, svi, loader_test, states_normalize, observations_normalize)
+        param_line["mse"] = mse
+
+        result = json.dumps(param_line) + "\n"
+
+        # write to sweep file
+        with open(file_path, "a") as myfile:
+            myfile.write(result)
 
         # Optionally, end the experiment:
         experiment.end()
