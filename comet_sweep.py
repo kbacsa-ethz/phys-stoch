@@ -331,5 +331,8 @@ if __name__ == '__main__':
         with open(file_path, "a") as myfile:
             myfile.write(result)
 
+        # free memory
+        del model, svi, loss, mse
+
         # Optionally, end the experiment:
         experiment.end()
