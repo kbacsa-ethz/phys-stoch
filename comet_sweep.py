@@ -107,7 +107,6 @@ def train(experiment, vae, dataloader):
             experiment.log_metric("learning_rate", batch_lr, step=global_step)
 
         epoch_loss /= len(dataloader)
-        experiment.log_metric("loss", epoch_loss)
         print("Mean training loss at epoch {} is {}".format(epoch, epoch_loss))
 
     return svi
