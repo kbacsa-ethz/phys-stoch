@@ -114,6 +114,8 @@ def train(experiment, vae, dataloader):
 
 def evaluate(experiment, vae, svi, val_loader, states_normalize, observations_normalize):
     vae.encoder.eval()
+    svi.model.eval()
+    svi.model.eval()
     val_epoch_loss = 0
     for sample in val_loader:
         mini_batch = sample['obs'].float().to(device)
@@ -287,7 +289,7 @@ if __name__ == '__main__':
             "learn_kinetic": {"type": "discrete", "values": [False]},
             "dt": {"type": "discrete", "values": [0.1]},
             "discretization": {"type": "discrete", "values": [3]},
-            "epochs": {"type": "discrete", "values": [3]},
+            "epochs": {"type": "discrete", "values": [5]},
             "batch_size": {"type": "discrete", "values": [256]},
             "learning_rate": {"type": "discrete", "values": [1e-3]},
             "beta1": {"type": "discrete", "values": [0.96]},
@@ -309,7 +311,7 @@ if __name__ == '__main__':
     if not os.path.exists(file_path):
         os.mknod(file_path)
 
-    for experiment in opt.get_experiments(project_name="phys-sweep"):
+    for experiment in opt.get_experiments(project_name="2dof"):
 
         param_line = {par: experiment.get_parameter(par) for par in param_sweep}
 
@@ -317,12 +319,12 @@ if __name__ == '__main__':
         model = build_model_graph(experiment)
 
         # Train it:
-        svi = train(experiment, model, loader_train)
+        val_svi = train(experiment, model, loader_train)
 
         # How well did it do?
-        loss, mse = evaluate(experiment, model, svi, loader_test, states_normalize, observations_normalize)
-        param_line["mse"] = mse
-        param_line["loss"] = loss
+        final_loss, final_mse = evaluate(experiment, model, val_svi, loader_test, states_normalize, observations_normalize)
+        param_line["mse"] = final_mse
+        param_line["loss"] = final_loss
 
         result = json.dumps(param_line) + "\n"
 
@@ -331,7 +333,7 @@ if __name__ == '__main__':
             myfile.write(result)
 
         # free memory
-        del model, svi, loss, mse
+        del model, val_svi, final_loss, final_mse
 
         # Optionally, end the experiment:
         experiment.end()
