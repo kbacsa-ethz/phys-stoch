@@ -114,8 +114,6 @@ def train(experiment, vae, dataloader):
 
 def evaluate(experiment, vae, svi, val_loader, states_normalize, observations_normalize):
     vae.encoder.eval()
-    svi.model.eval()
-    svi.model.eval()
     val_epoch_loss = 0
     for sample in val_loader:
         mini_batch = sample['obs'].float().to(device)
@@ -289,7 +287,7 @@ if __name__ == '__main__':
             "learn_kinetic": {"type": "discrete", "values": [False]},
             "dt": {"type": "discrete", "values": [0.1]},
             "discretization": {"type": "discrete", "values": [3]},
-            "epochs": {"type": "discrete", "values": [5]},
+            "epochs": {"type": "discrete", "values": [10]},
             "batch_size": {"type": "discrete", "values": [256]},
             "learning_rate": {"type": "discrete", "values": [1e-3]},
             "beta1": {"type": "discrete", "values": [0.96]},
