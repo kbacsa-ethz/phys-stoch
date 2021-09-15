@@ -236,6 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--learn-kinetic', action='store_true')
 
     # Machine parameters
+    parser.add_argument('--nproc', type=int, default=2)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--comet', action='store_true')

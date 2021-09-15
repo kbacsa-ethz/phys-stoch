@@ -115,8 +115,8 @@ def train(cfg):
     test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
                                      forces_windowed[test_idx], obs_idx, cfg.seq_len + 1)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
@@ -361,6 +361,7 @@ if __name__ == '__main__':
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--learn-kinetic', action='store_true')
+    parser.add_argument('--nproc', type=int, default=2)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--comet', action='store_true')
