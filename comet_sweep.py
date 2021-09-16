@@ -202,7 +202,7 @@ if __name__ == '__main__':
     # I/O parameters
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/3springmass_free.ini')
 
     # Network parameters
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
@@ -274,15 +274,15 @@ if __name__ == '__main__':
         "spec": {"maxCombo": 10, "objective": "minimize", "metric": "loss", "seed": seed},
         "parameters": {
             # sweep parameters
-            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 10, "max": 20},
-            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 3},
-            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 20, "max": 40},
+            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 10, "max": 40},
+            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
+            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 20, "max": 60},
             "potential_hidden": {"type": "integer", "scalingType": "linear", "min": 10, "max": 100},
             "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
             "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 1, "max": 5},
             # constant parameters
-            "input_dim": {"type": "discrete", "values": [4]},
-            "z_dim": {"type": "discrete", "values": [4]},
+            "input_dim": {"type": "discrete", "values": [6]},
+            "z_dim": {"type": "discrete", "values": [6]},
             "encoder_dropout_rate": {"type": "discrete", "values": [0.1]},
             "dissipative": {"type": "discrete", "values": [False]},
             "learn_kinetic": {"type": "discrete", "values": [False]},
@@ -305,12 +305,14 @@ if __name__ == '__main__':
     opt = comet_ml.Optimizer(config, api_key="Bm8mJ7xbMDa77te70th8PNcT8")
     param_sweep = ["emission_dim", "emission_layers", "transmission_dim", "potential_hidden", "potential_layers", "encoder_layers"]
 
-    file_path = os.path.join(cfg.root_path, "sweeps", "2dof.txt")
+    sweep_name, _ = os.path.splitext(cfg.config_path.split("/")[-1])
+    file_path = os.path.join(cfg.root_path, "sweeps", sweep_name + ".txt")
+    print(file_path)
 
     if not os.path.exists(file_path):
         os.mknod(file_path)
 
-    for experiment in opt.get_experiments(project_name="2dof"):
+    for experiment in opt.get_experiments(project_name=sweep_name):
 
         param_line = {par: experiment.get_parameter(par) for par in param_sweep}
 
