@@ -37,19 +37,17 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
     }, os.path.join(save_path, 'checkpoint.pth'))
 
 
-def main(cfg):
+def train(cfg):
     hyper_params = vars(cfg)
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not args.comet)
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not cfg.comet)
     experiment.log_parameters(hyper_params)
-
-    debug = False
 
     # add DLSC parameters like seed
     seed = 42
     torch.manual_seed(seed)
     pyro.set_rng_seed(seed)
 
-    if args.headless:
+    if cfg.headless:
         mpl.use('Agg')  # if you are on a headless machine
     else:
         mpl.use('TkAgg')
@@ -60,7 +58,7 @@ def main(cfg):
     run_dir = os.path.join(cfg.root_path, 'experiments')
 
     config = configparser.ConfigParser()
-    config.read(os.path.join(args.root_path, cfg.config_path))
+    config.read(os.path.join(cfg.root_path, cfg.config_path))
 
     exp_name = data_path_from_config(config)
     obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
@@ -117,8 +115,8 @@ def main(cfg):
     test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
                                      forces_windowed[test_idx], obs_idx, cfg.seq_len + 1)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
@@ -189,7 +187,7 @@ def main(cfg):
                 experiment.log_metric("learning_rate", batch_lr, step=global_step)
                 experiment.log_metric("C_rank", torch.linalg.matrix_rank(vae.emitter.hidden_to_loc.weight),
                                       step=global_step)
-                if debug:
+                if cfg.debug:
                     break
 
             epoch_loss /= len(train_dataset)
@@ -204,7 +202,7 @@ def main(cfg):
 
                     # do an actual gradient step
                     val_epoch_loss += svi.evaluate_loss(mini_batch, mini_batch_mask)
-                    if debug:
+                    if cfg.debug:
                         break
 
                 # record loss and save
@@ -267,7 +265,7 @@ def main(cfg):
                             energy[n_re, :time_length, 1]],
                     names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
                     title="Energy",
-                    debug=debug
+                    debug=cfg.debug
                 )
 
                 experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
@@ -286,7 +284,7 @@ def main(cfg):
                     names=["reference", "generative model"],
                     title="Learned Latent Space - Training epoch =" + " " + str(epoch),
                     y_label=Ylabels,
-                    debug=debug
+                    debug=cfg.debug
                 )
                 experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
@@ -302,14 +300,14 @@ def main(cfg):
                     names=["generated observations", "true observations"],
                     title='Observations - Training epoch =' + "" + str(epoch),
                     y_label=obs_labels,
-                    debug=debug
+                    debug=cfg.debug
                 )
                 experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
 
                 fig = matrix_plot(
                     matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
                     title="Emission matrix at epoch = " + str(epoch),
-                    debug=debug
+                    debug=cfg.debug
                 )
                 experiment.log_figure(figure=fig, figure_name="c_mat_{:02d}".format(epoch))
 
@@ -317,7 +315,7 @@ def main(cfg):
                 fig = matrix_plot(
                     matrix=A,
                     title="Transmission matrix at epoch = " + str(epoch),
-                    debug=debug
+                    debug=cfg.debug
                 )
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
@@ -327,7 +325,7 @@ def main(cfg):
 
                 vae.train()
 
-    return 0
+    return mse_loss
 
 
 if __name__ == '__main__':
@@ -353,7 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('-b2', '--beta2', type=float, default=0.999)
     parser.add_argument('-cn', '--clip-norm', type=float, default=10.0)
     parser.add_argument('-lrd', '--lr-decay', type=float, default=0.99996)
-    parser.add_argument('-wd', '--weight-decay', type=float, default=2.0)
+    parser.add_argument('-wd', '--weight-decay', type=float, default=0.01)
     parser.add_argument('-bs', '--batch-size', type=int, default=256)
     parser.add_argument('-sq', '--seq-len', type=int, default=50)
     parser.add_argument('-ae', '--annealing-epochs', type=int, default=2)
@@ -363,9 +361,11 @@ if __name__ == '__main__':
     parser.add_argument('-id', '--iaf-dim', type=int, default=100)
     parser.add_argument('-vf', '--validation-freq', type=int, default=1)
     parser.add_argument('--learn-kinetic', action='store_true')
+    parser.add_argument('--nproc', type=int, default=2)
     parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('--debug', action='store_true')
     parser.add_argument('--comet', action='store_true')
     parser.add_argument('--headless', action='store_true')
     args = parser.parse_args()
 
-    main(args)
+    train(args)

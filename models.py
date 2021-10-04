@@ -44,12 +44,6 @@ class Emitter(nn.Module):
             else:
                 self.linears.append(nn.Linear(emission_dim, emission_dim))
 
-        """ Check if matrix is triangular
-        self.hidden_to_loc.register_forward_hook(
-            lambda layer, _, output: print({layer.weight})
-        )
-        """
-
         self.n_layers = len(self.linears)
         self.input_dim = input_dim
         self.emission_dim = emission_dim
