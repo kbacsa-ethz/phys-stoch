@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('-rp', type=str, default='.')
     parser.add_argument('-type', type=str, default='free')
     parser.add_argument('-select', type=str, default='notrandom')
-    parser.add_argument('-ndof', type=int, default=2)
+    parser.add_argument('-ndof', type=int, default=3)
     parser.add_argument('-noise', type=float, default=0.05)
     parser.add_argument('-lk', action='store_true')
     args = parser.parse_args()

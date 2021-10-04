@@ -4,23 +4,24 @@ import argparse
 import os
 import json
 import pandas as pd
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
 def plot_sweep(cfg):
-
     if cfg.headless:
         mpl.use('Agg')  # if you are on a headless machine
     else:
         mpl.use('TkAgg')
 
-    experiment = Experiment(project_name="2dof", api_key="Bm8mJ7xbMDa77te70th8PNcT8")
+    # experiment = Experiment(project_name="2dof", api_key="Bm8mJ7xbMDa77te70th8PNcT8")
 
-    param_sweep = ["emission_dim", "emission_layers", "transmission_dim", "potential_hidden", "potential_layers", "encoder_layers"]
+    param_sweep = ["emission_dim", "emission_layers", "transmission_dim", "potential_hidden", "potential_layers",
+                   "encoder_layers"]
 
     exp = []
-    file_path = os.path.join(cfg.root_path, "sweeps", "2dof.txt")
+    file_path = os.path.join(cfg.root_path, "sweeps", "5springmass_free.txt")
     with open(file_path) as file:
         while line := file.readline().rstrip():
             out = json.loads(line)
@@ -33,8 +34,19 @@ def plot_sweep(cfg):
 
     for param in param_sweep:
         df_final.plot.scatter(param, "mse")
+
+        x = df_final[param].values
+        y = df_final["mse"].values
+
+        y_vals = []
+        x_vals = np.unique(x)
+        for x_val in x_vals:
+            y_vals.append(y[np.where(x == x_val)].mean())
+
+        plt.plot(x_vals, y_vals, 'r')
         plt.title("Sweep of {}".format(param))
-        experiment.log_figure(figure_name=param)
+        plt.show()
+        # experiment.log_figure(figure_name=param)
 
 
 if __name__ == '__main__':
