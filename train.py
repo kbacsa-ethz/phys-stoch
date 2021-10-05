@@ -257,6 +257,18 @@ def train(cfg):
                 # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
+                # phase portrait
+                fig = phase_plot(
+                    pred_pos=q,
+                    pred_vec=qd,
+                    grnd_pos=states_normalize[n_re, :, :z_dim//2],
+                    grnd_vec=states_normalize[n_re, :, z_dim//2:],
+                    title="Phase",
+                    debug=cfg.debug
+                )
+
+                experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
+
                 fig = simple_plot(
                     x_axis=t_vec,
                     values=[latent_kinetic,
