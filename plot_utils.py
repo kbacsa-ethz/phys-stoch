@@ -65,8 +65,10 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1 = normalize(grnd_pos[..., i])
         y1d = normalize(grnd_vec[..., i])
 
-        plt.plot(x1, x1d, '--')
-        plt.plot(y1, y1d)
+        plt.xlabel("x_{}".format(i))
+        plt.plot(x1, x1d, '--', label='latent phase')
+        plt.plot(y1, y1d, label='true phase')
+        plt.legend(loc="upper left")
 
     if debug:
         plt.show()
