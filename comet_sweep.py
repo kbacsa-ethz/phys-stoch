@@ -202,7 +202,7 @@ if __name__ == '__main__':
     # I/O parameters
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/3springmass_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
 
     # Network parameters
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
@@ -281,8 +281,8 @@ if __name__ == '__main__':
             "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
             "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 1, "max": 5},
             # constant parameters
-            "input_dim": {"type": "discrete", "values": [6]},
-            "z_dim": {"type": "discrete", "values": [6]},
+            "input_dim": {"type": "discrete", "values": [4]},
+            "z_dim": {"type": "discrete", "values": [4]},
             "encoder_dropout_rate": {"type": "discrete", "values": [0.1]},
             "dissipative": {"type": "discrete", "values": [False]},
             "learn_kinetic": {"type": "discrete", "values": [False]},
