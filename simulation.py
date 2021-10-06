@@ -10,7 +10,7 @@ from tqdm import tqdm
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
-from dynamics import linear, duffing
+from dynamics import *
 from utils import data_path_from_config
 
 
@@ -68,6 +68,8 @@ def main(ag, cfg):
         vectorfield = linear
     elif flow_type == 'duffing':
         vectorfield = duffing
+    elif flow_type == 'pendulum':
+        vectorfield, p = pendulum(n_dof)
     else:
         raise NotImplementedError()
 
@@ -86,10 +88,12 @@ def main(ag, cfg):
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
+        if flow_type == 'linear':
+            p = [m, c, k, fint]
         if flow_type == 'duffing':
             p = [m, c, k, k/3, fint]
         else:
-            p = [m, c, k, fint]
+            pass
 
         # Call the ODE solver.
         wsol = odeint(vectorfield, w0, tics, args=(p,),
@@ -132,7 +136,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
