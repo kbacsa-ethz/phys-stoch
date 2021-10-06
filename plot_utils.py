@@ -55,7 +55,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
     n_plots = pred_pos.shape[-1]
 
-    fig = plt.figure(figsize=(16, 7))
+    fig1 = plt.figure(figsize=(16, 7))
     plt.title(title)
     for i in range(n_plots):
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
@@ -66,10 +66,40 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1d = normalize(grnd_vec[..., i])
 
         plt.xlabel("x_{}".format(i))
+        plt.ylabel("xdot_{}".format(i))
+        plt.plot(x1, x1d, '--', label='latent phase')
+        plt.plot(y1, y1d, label='true phase')
+        plt.legend(loc="upper left")
+
+    fig2 = plt.figure(figsize=(16, 7))
+    plt.title(title)
+    for i in range(n_plots//2):
+        ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
+
+        x1 = normalize(pred_pos[..., i])
+        x1d = normalize(pred_pos[..., i+1])
+        y1 = normalize(grnd_pos[..., i])
+        y1d = normalize(grnd_pos[..., i+1])
+
+        plt.xlabel("x_{}".format(i))
+        plt.ylabel("x_{}".format(i+1))
+        plt.plot(x1, x1d, '--', label='latent phase')
+        plt.plot(y1, y1d, label='true phase')
+        plt.legend(loc="upper left")
+
+        ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 2)
+
+        x1 = normalize(pred_vec[..., i])
+        x1d = normalize(pred_vec[..., i+1])
+        y1 = normalize(grnd_vec[..., i])
+        y1d = normalize(grnd_vec[..., i+1])
+
+        plt.xlabel("xdot_{}".format(i))
+        plt.ylabel("xdot_{}".format(i+1))
         plt.plot(x1, x1d, '--', label='latent phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
     if debug:
         plt.show()
-    return fig
+    return fig1, fig2
