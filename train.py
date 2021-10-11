@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from comet_ml import Experiment
 
 import os
@@ -218,6 +219,9 @@ def train(cfg):
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
+
+                fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
+                experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
 
                 ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
                 ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()

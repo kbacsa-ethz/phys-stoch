@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import normalize
+from MEMD_all import memd
 
 
 def simple_plot(x_axis, values, names, title, debug=False):
@@ -103,3 +104,28 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
     if debug:
         plt.show()
     return fig1, fig2
+
+
+def plot_emd(state_space, debug=False):
+    imf = memd(state_space)
+    M, D, T = imf.shape
+    fig, axes = plt.subplots(nrows=D, ncols=M, figsize=(30, 15))
+    for i in range(D):
+        for j in range(M):
+            ax = plt.subplot(D, M, M * i + j + 1)
+            plt.plot(imf[j, i, :])
+
+    cols = ['Mode {}'.format(col) for col in range(M)]
+    rows = ['State {}'.format(row) for row in range(D)]
+
+    for ax, col in zip(axes[0], cols):
+        ax.set_title(col)
+
+    for ax, row in zip(axes[:, 0], rows):
+        ax.set_ylabel(row, rotation=0, size='large')
+
+    fig.tight_layout()
+
+    if debug:
+        plt.show()
+    return fig
