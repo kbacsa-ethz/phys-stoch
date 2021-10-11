@@ -36,6 +36,10 @@ def main(ag, cfg):
     n_iter = int(cfg['Simulation']['Iterations'])
     obs_idx = np.array(list(map(int, cfg['Simulation']['Observations'].split(','))))
     obs_noise = np.array(list(map(float, cfg['Simulation']['Noise'].split(','))))
+    x_min = float(cfg['Simulation']['Lower_x'])
+    x_max = float(cfg['Simulation']['Upper_x'])
+    y_min = float(cfg['Simulation']['Lower_xdot'])
+    y_max = float(cfg['Simulation']['Upper_xdot'])
     abserr = float(cfg['Simulation']['Absolute'])
     relerr = float(cfg['Simulation']['Relative'])
     dt = float(cfg['Simulation']['Delta'])
@@ -76,8 +80,8 @@ def main(ag, cfg):
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.random([n_dof, 1]).squeeze(1)
-        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        q0 = (x_max - x_min) * np.random.random([n_dof, 1]).squeeze() + x_min
+        qdot0 = (y_max - y_min) * np.random.random([n_dof, 1]).squeeze() + y_min
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -136,7 +140,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
