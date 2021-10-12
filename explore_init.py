@@ -11,17 +11,6 @@ from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
 from dynamics import *
-from utils import data_path_from_config
-
-
-def ftle(dphi, T):
-    delta = dphi.T @ dphi
-
-    if len(dphi) > 5:
-        ftle_val = 1 / np.abs(T) * np.sqrt(max(np.linalg.eigvals(delta)))
-    else:
-        ftle_val = 1 / np.abs(T) * np.sqrt(delta)
-    return ftle_val
 
 
 def main(ag, cfg):
@@ -74,12 +63,11 @@ def main(ag, cfg):
         raise NotImplementedError()
 
     # run grid simulation
-    nx, ny = (10, 10)
+    nx, ny = (100, 100)
     x = np.linspace(x_min, x_max, nx)
     y = np.linspace(y_min, y_max, ny)
-    xv, yv = np.meshgrid(x, y)
 
-    ftle_mat = np.zeros([nx, ny])
+    flow_map = np.zeros([nx, ny, 2*n_dof])
 
     for i in range(nx):
         for j in range(ny):
@@ -105,9 +93,28 @@ def main(ag, cfg):
             wsol = odeint(vectorfield, w0, tics, args=(p,),
                           atol=abserr, rtol=relerr)
 
-            ftle_mat[i, j] = ftle(wsol[-1], t_max)
+            flow_map[i, j] = wsol[-1]
 
-    plt.imshow(ftle_mat, extent=[x_min, x_max, y_min, y_max])
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    df_x = np.gradient(flow_map[..., :n_dof], dx, dy, axis=(0, 1))
+    df_xx, df_xy = df_x[0], df_x[1]
+    df_y = np.gradient(flow_map[..., n_dof:], dx, dy, axis=(0, 1))
+    df_yx, df_yy = df_y[0], df_y[1]
+
+    # parallelized lambda computation
+    c11 = df_xx ** 2 + df_xy ** 2
+    c12 = df_xx * df_xy + df_yx * df_yy
+    c21 = c12
+    c22 = df_yx ** 2 + df_yy ** 2
+    det_c = c11 * c22 - c12 * c21
+    trace_c = c11 + c22
+    l_eig = np.real(trace_c/2 + np.sqrt((trace_c/2)**2 - det_c))
+    ftle = np.log(l_eig) / (2 * t_max)
+
+    plt.imshow(ftle[..., 0], extent=[x_min, x_max, y_min, y_max])
+    plt.show()
+    plt.imshow(ftle[..., 1], extent=[x_min, x_max, y_min, y_max])
     plt.show()
 
     return 0
@@ -117,7 +124,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
