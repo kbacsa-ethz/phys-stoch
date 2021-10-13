@@ -211,6 +211,7 @@ def train(cfg):
                 experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
                 print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
+                experiment.log_model("MODEL", os.path.join(save_path, "checkpoint.pth"))
 
                 # Zhilu plot
                 n_re = 0
