@@ -274,12 +274,12 @@ if __name__ == '__main__':
         "spec": {"maxCombo": 10, "objective": "minimize", "metric": "loss", "seed": seed},
         "parameters": {
             # sweep parameters
-            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 10, "max": 40},
-            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
-            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 20, "max": 60},
+            "emission_dim": {"type": "integer", "scalingType": "linear", "min": 10, "max": 100},
+            "emission_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 7},
+            "transmission_dim": {"type": "integer", "scalingType": "linear", "min": 20, "max": 100},
             "potential_hidden": {"type": "integer", "scalingType": "linear", "min": 10, "max": 100},
-            "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 5},
-            "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 1, "max": 5},
+            "potential_layers": {"type": "integer", "scalingType": "linear", "min": 0, "max": 10},
+            "encoder_layers": {"type": "integer", "scalingType": "linear", "min": 1, "max": 7},
             # constant parameters
             "input_dim": {"type": "discrete", "values": [4]},
             "z_dim": {"type": "discrete", "values": [4]},
