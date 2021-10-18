@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import normalize
+from rotation import rigid_transform_2D
 from MEMD_all import memd
 
 
@@ -61,10 +62,10 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
     for i in range(n_plots):
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
 
-        x1 = normalize(pred_pos[..., i])
-        x1d = normalize(pred_vec[..., i])
-        y1 = normalize(grnd_pos[..., i])
-        y1d = normalize(grnd_vec[..., i])
+        x1 = normalize(pred_pos[2:, i])
+        x1d = normalize(pred_vec[2:, i])
+        y1 = normalize(grnd_pos[2:, i])
+        y1d = normalize(grnd_vec[2:, i])
 
         plt.xlabel("x_{}".format(i))
         plt.ylabel("xdot_{}".format(i))
@@ -74,31 +75,48 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
     fig2 = plt.figure(figsize=(16, 7))
     plt.title(title)
+    t_max = 450
     for i in range(n_plots//2):
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
 
-        x1 = normalize(pred_pos[..., i])
-        x1d = normalize(pred_pos[..., i+1])
-        y1 = normalize(grnd_pos[..., i])
-        y1d = normalize(grnd_pos[..., i+1])
+        x1 = normalize(pred_pos[2:t_max, i])
+        x1d = normalize(pred_pos[2:t_max, i+1])
+        y1 = normalize(grnd_pos[2:t_max, i])
+        y1d = normalize(grnd_pos[2:t_max, i+1])
+
+        rot_out = rigid_transform_2D(
+            np.stack([x1, x1d], axis=0),
+            np.stack([y1, y1d], axis=0)
+        )
+
+        xr, yr = rot_out[0, :], rot_out[1, :]
 
         plt.xlabel("x_{}".format(i))
         plt.ylabel("x_{}".format(i+1))
         plt.plot(x1, x1d, '--', label='latent phase')
         plt.plot(y1, y1d, label='true phase')
+        plt.plot(xr, xr, label='rotated phase')
         plt.legend(loc="upper left")
 
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 2)
 
-        x1 = normalize(pred_vec[..., i])
-        x1d = normalize(pred_vec[..., i+1])
-        y1 = normalize(grnd_vec[..., i])
-        y1d = normalize(grnd_vec[..., i+1])
+        x1 = normalize(pred_vec[2:t_max, i])
+        x1d = normalize(pred_vec[2:t_max, i+1])
+        y1 = normalize(grnd_vec[2:t_max, i])
+        y1d = normalize(grnd_vec[2:t_max, i+1])
+
+        rot_out = rigid_transform_2D(
+            np.stack([x1, x1d], axis=0),
+            np.stack([y1, y1d], axis=0)
+        )
+
+        xr, yr = rot_out[0, :], rot_out[1, :]
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i+1))
         plt.plot(x1, x1d, '--', label='latent phase')
         plt.plot(y1, y1d, label='true phase')
+        plt.plot(xr, xr, label='rotated phase')
         plt.legend(loc="upper left")
 
     if debug:
