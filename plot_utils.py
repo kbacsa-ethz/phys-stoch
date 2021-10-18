@@ -95,7 +95,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.ylabel("x_{}".format(i+1))
         plt.plot(x1, x1d, '--', label='latent phase')
         plt.plot(y1, y1d, label='true phase')
-        plt.plot(xr, xr, label='rotated phase')
+        plt.plot(xr, yr, label='rotated phase')
         plt.legend(loc="upper left")
 
         ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 2)
@@ -116,7 +116,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.ylabel("xdot_{}".format(i+1))
         plt.plot(x1, x1d, '--', label='latent phase')
         plt.plot(y1, y1d, label='true phase')
-        plt.plot(xr, xr, label='rotated phase')
+        plt.plot(xr, yr, label='rotated phase')
         plt.legend(loc="upper left")
 
     if debug:
