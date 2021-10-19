@@ -57,23 +57,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
     n_plots = pred_pos.shape[-1]
 
-    fig1 = plt.figure(figsize=(16, 7))
-    plt.title(title)
-    for i in range(n_plots):
-        ax = plt.subplot(n_plots // 2, n_plots // (n_plots // 2), i + 1)
-
-        x1 = normalize(pred_pos[2:, i])
-        x1d = normalize(pred_vec[2:, i])
-        y1 = normalize(grnd_pos[2:, i])
-        y1d = normalize(grnd_vec[2:, i])
-
-        plt.xlabel("x_{}".format(i))
-        plt.ylabel("xdot_{}".format(i))
-        plt.plot(x1, x1d, '--', label='latent phase')
-        plt.plot(y1, y1d, label='true phase')
-        plt.legend(loc="upper left")
-
-    fig2 = plt.figure(figsize=(16, 7))
+    fig = plt.figure(figsize=(16, 7))
     plt.title(title)
     t_max = 450
     for i in range(n_plots//2):
@@ -121,7 +105,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
     if debug:
         plt.show()
-    return fig1, fig2
+    return fig
 
 
 def plot_emd(state_space, debug=False):

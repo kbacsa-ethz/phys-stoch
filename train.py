@@ -263,7 +263,7 @@ def train(cfg):
                 latent_potential /= np.abs(latent_potential).max()
 
                 # phase portrait
-                fig1, fig2 = phase_plot(
+                fig = phase_plot(
                     pred_pos=q,
                     pred_vec=qd,
                     grnd_pos=states_normalize[n_re, :, :z_dim//2],
@@ -272,8 +272,7 @@ def train(cfg):
                     debug=cfg.debug
                 )
 
-                experiment.log_figure(figure=fig1, figure_name="phase_{:02d}".format(epoch))
-                experiment.log_figure(figure=fig2, figure_name="crossphase_{:02d}".format(epoch))
+                experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
 
                 fig = simple_plot(
                     x_axis=t_vec,
