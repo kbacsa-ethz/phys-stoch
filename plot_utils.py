@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import normalize
-from rotation import rigid_transform_2D
+from calculate_rmsd import kabsch_fit
 from MEMD_all import memd
 
 
@@ -68,12 +68,12 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1 = normalize(grnd_pos[2:t_max, i])
         y1d = normalize(grnd_pos[2:t_max, i+1])
 
-        rot_out = rigid_transform_2D(
-            np.stack([x1, x1d], axis=0),
-            np.stack([y1, y1d], axis=0)
+        rot_out = kabsch_fit(
+            np.stack([x1, x1d], axis=1),
+            np.stack([y1, y1d], axis=1)
         )
 
-        xr, yr = rot_out[0, :], rot_out[1, :]
+        xr, yr = rot_out[:, 0], rot_out[:, 1]
 
         plt.xlabel("x_{}".format(i))
         plt.ylabel("x_{}".format(i+1))
@@ -89,12 +89,12 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1 = normalize(grnd_vec[2:t_max, i])
         y1d = normalize(grnd_vec[2:t_max, i+1])
 
-        rot_out = rigid_transform_2D(
-            np.stack([x1, x1d], axis=0),
-            np.stack([y1, y1d], axis=0)
+        rot_out = kabsch_fit(
+            np.stack([x1, x1d], axis=1),
+            np.stack([y1, y1d], axis=1)
         )
 
-        xr, yr = rot_out[0, :], rot_out[1, :]
+        xr, yr = rot_out[:, 0], rot_out[:, 1]
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i+1))
@@ -110,12 +110,12 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1 = normalize(grnd_vec[2:t_max, i])
         y1d = normalize(grnd_vec[2:t_max, i + 1])
 
-        rot_out = rigid_transform_2D(
-            np.stack([x1, x1d], axis=0),
-            np.stack([y1, y1d], axis=0)
+        rot_out = kabsch_fit(
+            np.stack([x1, x1d], axis=1),
+            np.stack([y1, y1d], axis=1)
         )
 
-        xr, yr = rot_out[0, :], rot_out[1, :]
+        xr, yr = rot_out[:, 0], rot_out[:, 1]
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i + 1))
@@ -131,12 +131,12 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         y1 = normalize(grnd_pos[2:t_max, i])
         y1d = normalize(grnd_pos[2:t_max, i + 1])
 
-        rot_out = rigid_transform_2D(
-            np.stack([x1, x1d], axis=0),
-            np.stack([y1, y1d], axis=0)
+        rot_out = kabsch_fit(
+            np.stack([x1, x1d], axis=1),
+            np.stack([y1, y1d], axis=1)
         )
 
-        xr, yr = rot_out[0, :], rot_out[1, :]
+        xr, yr = rot_out[:, 0], rot_out[:, 1]
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i + 1))
