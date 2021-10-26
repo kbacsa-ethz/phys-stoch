@@ -280,8 +280,10 @@ def train(cfg):
                             energy[n_re, :time_length, 0],
                             latent_potential,
                             energy[n_re, :time_length, 1]],
+                    max_t=100,
                     names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
                     title="Energy",
+                    normalized=True,
                     debug=cfg.debug
                 )
 

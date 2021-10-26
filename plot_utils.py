@@ -5,11 +5,14 @@ from calculate_rmsd import kabsch_fit
 from MEMD_all import memd
 
 
-def simple_plot(x_axis, values, names, title, debug=False):
+def simple_plot(x_axis, values, max_t, names, title, normalized=False, debug=False):
+    assert max_t < len(x_axis)
     fig = plt.figure(figsize=(16, 7))
     plt.title(title)
     for v, n in zip(values, names):
-        plt.plot(x_axis, v, label=n)
+        if normalized:
+            v = normalize(v)
+        plt.plot(x_axis[:max_t], v[:max_t], label=n)
     plt.xlabel("$t$")
     plt.legend(loc="upper left")
     if debug:
