@@ -80,7 +80,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
         plt.xlabel("x_{}".format(i))
         plt.ylabel("x_{}".format(i+1))
-        plt.plot(x1, x1d, '--', label='rotated phase')
+        plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
@@ -100,7 +100,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i+1))
-        plt.plot(x1, x1d, '--', label='rotated phase')
+        plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
@@ -120,7 +120,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i + 1))
-        plt.plot(x1, x1d, '--', label='rotated phase')
+        plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
@@ -140,7 +140,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
         plt.xlabel("xdot_{}".format(i))
         plt.ylabel("xdot_{}".format(i + 1))
-        plt.plot(x1, x1d, '--', label='rotated phase')
+        plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
