@@ -63,6 +63,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
     fig = plt.figure(figsize=(16, 7))
     plt.title(title)
     t_max = 450
+    saves = []
     for i in range(n_plots//2):
         ax = plt.subplot(n_plots, n_plots, i + 1)
 
@@ -84,6 +85,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
+        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 2)
 
         x1 = normalize(pred_vec[2:t_max, i])
@@ -104,6 +106,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
+        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 3)
 
         x1 = normalize(pred_pos[2:t_max, i])
@@ -118,12 +121,13 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
         xr, yr = rot_out[:, 0], rot_out[:, 1]
 
-        plt.xlabel("xdot_{}".format(i))
+        plt.xlabel("x_{}".format(i))
         plt.ylabel("xdot_{}".format(i + 1))
         plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
+        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 4)
 
         x1 = normalize(pred_vec[2:t_max, i])
@@ -139,14 +143,15 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         xr, yr = rot_out[:, 0], rot_out[:, 1]
 
         plt.xlabel("xdot_{}".format(i))
-        plt.ylabel("xdot_{}".format(i + 1))
+        plt.ylabel("x_{}".format(i + 1))
         plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
+        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
 
     if debug:
         plt.show()
-    return fig
+    return fig, saves
 
 
 def plot_emd(state_space, debug=False):

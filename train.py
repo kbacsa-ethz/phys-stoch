@@ -265,12 +265,8 @@ def train(cfg):
                 # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
-                dataframes = [pd.DataFrame(array, index=range(array.shape[0]), columns=range(array.shape[1])) for array in [q, qd, states_normalize[n_re, :q.shape[0], :z_dim // 2], states_normalize[n_re, :q.shape[0], z_dim // 2:z_dim]]]
-                df = pd.concat(dataframes, keys=('q', 'qdot', 's', 'sdot'))
-                experiment.log_table("phase_data_{}.csv".format(epoch), df)
-
                 # phase portrait
-                fig = phase_plot(
+                fig, saved_phases = phase_plot(
                     pred_pos=q,
                     pred_vec=qd,
                     grnd_pos=states_normalize[n_re, :, :z_dim // 2],
@@ -278,6 +274,9 @@ def train(cfg):
                     title="Phase",
                     debug=cfg.debug
                 )
+
+                for name, array in zip(['normal', 'cross', 'cross_inverted', 'inverted'], saved_phases):
+                    experiment.log_table("{}_{}.csv".format(name, epoch), pd.DataFrame(array))
 
                 experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
 
