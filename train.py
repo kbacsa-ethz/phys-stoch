@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 import matplotlib as mpl
+import pandas as pd
 import pyro
 from pyro.infer import (
     SVI,
@@ -264,11 +265,9 @@ def train(cfg):
                 # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
-                data_image = np.stack(
-                    [q, qd, states_normalize[n_re, :q.shape[0], :z_dim // 2],
-                     states_normalize[n_re, :q.shape[0], z_dim // 2:z_dim]])
-
-                experiment.log_other("phase_data_{}".format(epoch), data_image)
+                dataframes = [pd.DataFrame(array, columns=range(array.shape[0])) for array in [q, qd, states_normalize[n_re, :q.shape[0], :z_dim // 2], states_normalize[n_re, :q.shape[0], z_dim // 2:z_dim]]]
+                df = pd.concat(dataframes, keys=('q', 'qdot', 's', 'sdot'))
+                experiment.log_table("phase_data_{}".format(epoch), df)
 
                 # phase portrait
                 fig = phase_plot(
