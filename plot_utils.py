@@ -85,7 +85,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
-        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
+        saves.append(np.stack([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 2)
 
         x1 = normalize(pred_vec[2:t_max, i])
@@ -106,7 +106,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
-        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
+        saves.append(np.stack([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 3)
 
         x1 = normalize(pred_pos[2:t_max, i])
@@ -127,7 +127,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
 
-        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
+        saves.append(np.stack([x1, x1d, y1, y1d, xr, yr], axis=-1))
         ax = plt.subplot(n_plots, n_plots, i + 4)
 
         x1 = normalize(pred_vec[2:t_max, i])
@@ -147,7 +147,7 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
         plt.plot(xr, yr, '--', label='learned phase')
         plt.plot(y1, y1d, label='true phase')
         plt.legend(loc="upper left")
-        saves.append(np.concatenate([x1, x1d, y1, y1d, xr, yr], axis=-1))
+        saves.append(np.stack([x1, x1d, y1, y1d, xr, yr], axis=-1))
 
     if debug:
         plt.show()
