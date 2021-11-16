@@ -116,8 +116,10 @@ def train(cfg):
     test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
                                      forces_windowed[test_idx], obs_idx, cfg.seq_len + 1)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True,
+                                               num_workers=cfg.nproc)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True,
+                                             num_workers=cfg.nproc)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
@@ -262,12 +264,18 @@ def train(cfg):
                 # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
+                data_image = np.stack(
+                    [q, qd, states_normalize[n_re, :q.shape[0], :z_dim // 2],
+                     states_normalize[n_re, :q.shape[0], z_dim // 2:z_dim]])
+
+                experiment.log_other("phase_data_{}".format(epoch), data_image)
+
                 # phase portrait
                 fig = phase_plot(
                     pred_pos=q,
                     pred_vec=qd,
-                    grnd_pos=states_normalize[n_re, :, :z_dim//2],
-                    grnd_vec=states_normalize[n_re, :, z_dim//2:],
+                    grnd_pos=states_normalize[n_re, :, :z_dim // 2],
+                    grnd_vec=states_normalize[n_re, :, z_dim // 2:],
                     title="Phase",
                     debug=cfg.debug
                 )
@@ -307,7 +315,10 @@ def train(cfg):
                 )
                 experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
-                total_labels = ["u_" + str(i) for i in range(z_dim//2)] + ["udot_" + str(i) for i in range(z_dim//2)] + ["uddot_" + str(i) for i in range(z_dim//2)]
+                total_labels = ["u_" + str(i) for i in range(z_dim // 2)] + ["udot_" + str(i) for i in
+                                                                             range(z_dim // 2)] + ["uddot_" + str(i) for
+                                                                                                   i in
+                                                                                                   range(z_dim // 2)]
                 obs_labels = [total_labels[i] for i in obs_idx]
                 fig = grid_plot(
                     x_axis=t_vec,
