@@ -24,7 +24,7 @@ def main(cfg):
     k = np.diag(spring_diagonal) + np.diag(spring_lu, 1) + np.diag(spring_lu, -1)
 
     if cfg.type == 'dissipative':
-        capacitors = np.around(0.1 * np.random.rand(cfg.ndof + 1), 3)
+        capacitors = np.around(0.7 * np.random.rand(cfg.ndof + 1), 3)
         capacitors_diagonal = capacitors[:-1] + capacitors[1:]
         capacitors_lu = -capacitors[1:-1]
         c = np.diag(capacitors_diagonal) + np.diag(capacitors_lu, 1) + np.diag(capacitors_lu, -1)
@@ -41,7 +41,7 @@ def main(cfg):
     else:
         observables = observables[:cfg.ndof] + observables[2*cfg.ndof:]
 
-    with open(os.path.join(args.rp, "config", "{}springmass_{}_{}.ini".format(cfg.ndof, cfg.dynamics, cfg.type)), "w") as filep:
+    with open(os.path.join(args.rp, "config", "{}springmass_{}_{}_{}.ini".format(cfg.ndof, cfg.dynamics, cfg.ext, cfg.type)), "w") as filep:
         filep.write("[System]\n")
         filep.write("Name = {}springmass_{}_{}\n".format(cfg.ndof, cfg.dynamics, cfg.type))
         filep.write("M = " + m_string + "\n")
@@ -51,11 +51,11 @@ def main(cfg):
 
         filep.write("\n")
         filep.write("[Forces]\n")
-        filep.write("Type = free\n")
-        filep.write("Amplitude = 1.5\n")
-        filep.write("Frequency = 0.05\n")
-        filep.write("Shift = 0.25\n")
-        filep.write("Inputs = 0,1\n")
+        filep.write("Type = {}\n".format(cfg.ext))
+        filep.write("Amplitude = {}\n".format(cfg.amplitude))
+        filep.write("Frequency = {}\n".format(cfg.freq))
+        filep.write("Shift = {}\n".format(cfg.shift))
+        filep.write("Inputs = 0\n")  # keep default for now (input on first degree of freedom)
         filep.write("\n")
 
         filep.write("[Simulation]\n")
@@ -80,16 +80,20 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('-rp', type=str, default='.')
-    parser.add_argument('-type', type=str, default='free')
+    parser.add_argument('-type', type=str, default='dissipative')
     parser.add_argument('-n_iter', type=int, default=50)
     parser.add_argument('-dynamics', type=str, default='duffing')
+    parser.add_argument('-ext', type=str, default='impulse')
+    parser.add_argument('-amplitude', type=float, default=1.0)
+    parser.add_argument('-freq', type=float, default=0.003)
+    parser.add_argument('-shift', type=float, default=100)
     parser.add_argument('-select', type=str, default='notrandom')
     parser.add_argument('-ndof', type=int, default=2)
-    parser.add_argument('-l_x', type=float, default=-2.)
-    parser.add_argument('-l_y', type=float, default=-2.)
-    parser.add_argument('-u_x', type=float, default=2.)
-    parser.add_argument('-u_y', type=float, default=2.)
-    parser.add_argument('-noise', type=float, default=0.05)
+    parser.add_argument('-l_x', type=float, default=0.)
+    parser.add_argument('-l_y', type=float, default=0.)
+    parser.add_argument('-u_x', type=float, default=0.)
+    parser.add_argument('-u_y', type=float, default=0.)
+    parser.add_argument('-noise', type=float, default=0.01)
     parser.add_argument('-lk', action='store_true')
     args = parser.parse_args()
 

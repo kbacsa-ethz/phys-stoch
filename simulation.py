@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+import scipy.signal as signal
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
 from dynamics import *
-from utils import data_path_from_config
+from utils import data_path_from_config, phase_shift
 
 
 def main(ag, cfg):
@@ -28,7 +29,7 @@ def main(ag, cfg):
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
     force_freq = float(cfg['Forces']['Frequency'])
-    force_sig = float(cfg['Forces']['Shift'])
+    force_shift = float(cfg['Forces']['Shift'])
     force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
     # parse simulation parameters
@@ -56,6 +57,9 @@ def main(ag, cfg):
 
     if force_type == 'free':
         force_fct = lambda x: 0
+    elif force_type == 'impulse':
+        imp = signal.unit_impulse(len(tics), list(range(0, len(tics), int(1/force_freq))))
+        force_fct = lambda x: imp
     elif force_type == 'sinusoidal':
         force_fct = np.sin
     else:
@@ -87,8 +91,7 @@ def main(ag, cfg):
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
         for dof in force_dof:
-            force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
-                2 * np.pi * force_freq * tics + np.random.random() * force_sig)
+            force_input[dof, :] = (force_amp * np.random.random()) * phase_shift(force_fct(tics), force_shift * np.random.random(), dt)
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
@@ -140,7 +143,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_impulse_dissipative.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

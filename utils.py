@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-
+from numpy.fft import rfft, irfft, rfftfreq
+import numpy as np
 from math import sqrt
 
 
@@ -66,6 +67,33 @@ def fill_triangular(x, upper=False):
         x_out = torch.tril(x_mat)
 
     return x_out
+
+
+def phase_shift(iptsignal, angle, dt):
+    """Perform phase shift of arbitary angle
+
+    Author: Xiao Xiao, https://github.com/SeisPider
+
+    Parameter
+    =========
+    iptsignal : numpy.array
+        input signal
+    angle : float
+        angle to shift signal, in degree
+    dt : float
+        time step
+
+    """
+    # Resolve the signal's fourier spectrum
+    spec = rfft(iptsignal)
+    freq = rfftfreq(iptsignal.size, d=dt)
+
+    # Perform phase shift in freqeuency domain
+    spec *= np.exp(1.0j * np.deg2rad(angle))
+
+    # Inverse FFT back to time domain
+    phaseshift = irfft(spec, n=len(iptsignal))
+    return phaseshift
 
 
 # this function takes a torch mini-batch and reverses each sequence
