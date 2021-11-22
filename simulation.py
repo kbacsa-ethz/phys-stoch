@@ -29,7 +29,7 @@ def main(ag, cfg):
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
     force_freq = float(cfg['Forces']['Frequency'])
-    force_shift = float(cfg['Forces']['Shift'])
+    force_shift = int(cfg['Forces']['Shift'])
     force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
     # parse simulation parameters
@@ -58,8 +58,7 @@ def main(ag, cfg):
     if force_type == 'free':
         force_fct = lambda x: 0
     elif force_type == 'impulse':
-        imp = signal.unit_impulse(len(tics), list(range(0, len(tics), int(1/force_freq))))
-        force_fct = lambda x: imp
+        force_fct = lambda x: signal.unit_impulse(len(tics), [x, x+1, x+3])
     elif force_type == 'sinusoidal':
         force_fct = np.sin
     else:
@@ -91,7 +90,8 @@ def main(ag, cfg):
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
         for dof in force_dof:
-            force_input[dof, :] = (force_amp * np.random.random()) * phase_shift(force_fct(tics), force_shift * np.random.random(), dt)
+            impulse_shift = np.random.randint(0, len(tics) // 2)
+            force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
