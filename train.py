@@ -1,5 +1,4 @@
-import matplotlib.pyplot as plt
-from comet_ml import Experiment
+from comet_ml import Experiment, API
 
 import os
 import argparse
@@ -29,6 +28,8 @@ from utils import data_path_from_config
 from plot_utils import *
 
 
+API_KEY = "Bm8mJ7xbMDa77te70th8PNcT8"
+
 # saves the model and optimizer states to disk
 def save_checkpoint(model, optim, epoch, loss, save_path):
     torch.save({
@@ -41,7 +42,8 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 
 def train(cfg):
     hyper_params = vars(cfg)
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not cfg.comet)
+    experiment = Experiment(project_name="phys-stoch", api_key=API_KEY, disabled=not cfg.comet)
+    experiment.set_name("hello")
     experiment.log_parameters(hyper_params)
 
     # add DLSC parameters like seed
@@ -158,6 +160,8 @@ def train(cfg):
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
 
+    model_name = cfg.config_path.split("/")[-1].split(".")[0] + "_model"  # does not work on windows
+
     with experiment.train():
         global_step = 0
         for epoch in range(cfg.num_epochs):
@@ -214,7 +218,7 @@ def train(cfg):
                 experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
                 print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
-                experiment.log_model("MODEL", os.path.join(save_path, "checkpoint.pth"))
+                experiment.log_model(model_name, os.path.join(save_path, "checkpoint.pth"), overwrite=True)
 
                 # Zhilu plot
                 n_re = 0
@@ -353,6 +357,10 @@ def train(cfg):
 
                 vae.train()
 
+    api = API(api_key=API_KEY)
+    url = experiment.url.split("/")[-1]
+    log_exp = api.get(os.path.join("kbacsa-ethz", "phys-stoch", url))
+    log_exp.register_model(model_name)
     return mse_loss
 
 
@@ -372,7 +380,7 @@ if __name__ == '__main__':
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
-    parser.add_argument('-n', '--num-epochs', type=int, default=10)
+    parser.add_argument('-n', '--num-epochs', type=int, default=1)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
     parser.add_argument('-lr', '--learning-rate', type=float, default=1e-3)
     parser.add_argument('-b1', '--beta1', type=float, default=0.96)
