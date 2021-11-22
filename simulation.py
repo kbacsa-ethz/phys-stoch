@@ -10,26 +10,14 @@ from tqdm import tqdm
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 
+from dynamics import *
 from utils import data_path_from_config
-
-
-def vectorfield(w, t, p):
-    m, c, k, ext = p
-
-    n_dof = m.shape[0]
-    A = np.concatenate(
-        [
-            np.concatenate([np.zeros([n_dof, n_dof]), np.eye(n_dof)], axis=1),  # link velocities
-            np.concatenate([-np.linalg.solve(m, k), -np.linalg.solve(m, c)], axis=1),  # movement equations
-        ], axis=0)
-
-    f = A @ w + np.concatenate([np.zeros(n_dof), np.linalg.solve(m, ext(t))])
-    return f
 
 
 def main(ag, cfg):
     # parse system parameters
     system_type = cfg['System']['Name']
+    flow_type = cfg['System']['Dynamics']
     m = np.diag(np.array(list(map(float, cfg['System']['M'].split(',')))))
     n_dof = m.shape[0]
     c = np.reshape(np.array(list(map(float, cfg['System']['C'].split(',')))), [n_dof, n_dof])
@@ -48,6 +36,10 @@ def main(ag, cfg):
     n_iter = int(cfg['Simulation']['Iterations'])
     obs_idx = np.array(list(map(int, cfg['Simulation']['Observations'].split(','))))
     obs_noise = np.array(list(map(float, cfg['Simulation']['Noise'].split(','))))
+    x_min = float(cfg['Simulation']['Lower_x'])
+    x_max = float(cfg['Simulation']['Upper_x'])
+    y_min = float(cfg['Simulation']['Lower_xdot'])
+    y_max = float(cfg['Simulation']['Upper_xdot'])
     abserr = float(cfg['Simulation']['Absolute'])
     relerr = float(cfg['Simulation']['Relative'])
     dt = float(cfg['Simulation']['Delta'])
@@ -76,11 +68,20 @@ def main(ag, cfg):
     # kinetic, potential, dissipative, input, total
     energy_tensor = np.zeros([n_iter, len(tics), 5])
 
+    if flow_type == 'linear':
+        vectorfield = linear
+    elif flow_type == 'duffing':
+        vectorfield = duffing
+    elif flow_type == 'pendulum':
+        vectorfield, p = pendulum(n_dof)
+    else:
+        raise NotImplementedError()
+
     # run simulation
     for iter_idx in tqdm(range(n_iter)):
         # initialize state
-        q0 = np.random.random([n_dof, 1]).squeeze(1)
-        qdot0 = np.random.random([n_dof, 1]).squeeze(1)
+        q0 = (x_max - x_min) * np.random.random([n_dof, 1]).squeeze() + x_min
+        qdot0 = (y_max - y_min) * np.random.random([n_dof, 1]).squeeze() + y_min
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
@@ -90,7 +91,13 @@ def main(ag, cfg):
                 2 * np.pi * force_freq * tics + np.random.random() * force_sig)
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
-        p = [m, c, k, fint]
+
+        if flow_type == 'linear':
+            p = [m, c, k, fint]
+        if flow_type == 'duffing':
+            p = [m, c, k, k/3, fint]
+        else:
+            pass
 
         # Call the ODE solver.
         wsol = odeint(vectorfield, w0, tics, args=(p,),
@@ -133,7 +140,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/3springmass_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

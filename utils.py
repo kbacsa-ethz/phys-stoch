@@ -4,6 +4,10 @@ import torch.nn as nn
 from math import sqrt
 
 
+def normalize(x):
+    return (x - x.min()) / (x.max() - x.min())
+
+
 def data_path_from_config(cfg):
     data_path = '/'.join([
         cfg['System']['M'].replace('.', '-').replace(',', '_'),

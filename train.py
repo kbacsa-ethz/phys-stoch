@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from comet_ml import Experiment
 
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 import matplotlib as mpl
+import pandas as pd
 import pyro
 from pyro.infer import (
     SVI,
@@ -115,8 +117,10 @@ def train(cfg):
     test_dataset = TrajectoryDataset(states_windowed[test_idx], observations_windowed[test_idx],
                                      forces_windowed[test_idx], obs_idx, cfg.seq_len + 1)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.nproc)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True,
+                                               num_workers=cfg.nproc)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True,
+                                             num_workers=cfg.nproc)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False)
 
     # free memory to avoid crash
@@ -210,6 +214,7 @@ def train(cfg):
                 experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
                 print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
                 save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
+                experiment.log_model("MODEL", os.path.join(save_path, "checkpoint.pth"))
 
                 # Zhilu plot
                 n_re = 0
@@ -218,6 +223,9 @@ def train(cfg):
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
+
+                fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
+                experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
 
                 ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
                 ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
@@ -257,14 +265,31 @@ def train(cfg):
                 # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
                 latent_potential /= np.abs(latent_potential).max()
 
+                # phase portrait
+                fig, saved_phases = phase_plot(
+                    pred_pos=q,
+                    pred_vec=qd,
+                    grnd_pos=states_normalize[n_re, :, :z_dim // 2],
+                    grnd_vec=states_normalize[n_re, :, z_dim // 2:],
+                    title="Phase",
+                    debug=cfg.debug
+                )
+
+                for name, array in zip(['normal', 'cross', 'cross_inverted', 'inverted'], saved_phases):
+                    experiment.log_table("{}_{}.csv".format(name, epoch), pd.DataFrame(array))
+
+                experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
+
                 fig = simple_plot(
                     x_axis=t_vec,
                     values=[latent_kinetic,
                             energy[n_re, :time_length, 0],
                             latent_potential,
                             energy[n_re, :time_length, 1]],
+                    max_t=100,
                     names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
                     title="Energy",
+                    normalized=True,
                     debug=cfg.debug
                 )
 
@@ -288,7 +313,10 @@ def train(cfg):
                 )
                 experiment.log_figure(figure=fig, figure_name="latent_{:02d}".format(epoch))
 
-                total_labels = ["u_" + str(i) for i in range(z_dim//2)] + ["udot_" + str(i) for i in range(z_dim//2)] + ["uddot_" + str(i) for i in range(z_dim//2)]
+                total_labels = ["u_" + str(i) for i in range(z_dim // 2)] + ["udot_" + str(i) for i in
+                                                                             range(z_dim // 2)] + ["uddot_" + str(i) for
+                                                                                                   i in
+                                                                                                   range(z_dim // 2)]
                 obs_labels = [total_labels[i] for i in obs_idx]
                 fig = grid_plot(
                     x_axis=t_vec,
@@ -333,7 +361,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)

@@ -41,12 +41,14 @@ def main(cfg):
     else:
         observables = observables[:cfg.ndof] + observables[2*cfg.ndof:]
 
-    with open(os.path.join(args.rp, "config", "{}springmass_{}.ini".format(cfg.ndof, cfg.type)), "w") as filep:
+    with open(os.path.join(args.rp, "config", "{}springmass_{}_{}.ini".format(cfg.ndof, cfg.dynamics, cfg.type)), "w") as filep:
         filep.write("[System]\n")
-        filep.write("Name = {}springmass_{}\n".format(cfg.ndof, cfg.type))
+        filep.write("Name = {}springmass_{}_{}\n".format(cfg.ndof, cfg.dynamics, cfg.type))
         filep.write("M = " + m_string + "\n")
         filep.write("C = " + c_string + "\n")
         filep.write("K = " + k_string + "\n")
+        filep.write("Dynamics: " + cfg.dynamics + "\n")
+
         filep.write("\n")
         filep.write("[Forces]\n")
         filep.write("Type = free\n")
@@ -58,7 +60,11 @@ def main(cfg):
 
         filep.write("[Simulation]\n")
         filep.write("Seed = 42\n")
-        filep.write("Iterations = 500\n")
+        filep.write("Lower_x = {}\n".format(cfg.l_x))
+        filep.write("Upper_x = {}\n".format(cfg.u_x))
+        filep.write("Lower_xdot = {}\n".format(cfg.l_y))
+        filep.write("Upper_xdot = {}\n".format(cfg.u_y))
+        filep.write("Iterations = {}\n".format(cfg.n_iter))
         filep.write("Observations = " + ",".join(observables)+ "\n")
         filep.write("Noise = " + ",".join([str(cfg.noise)] * 2 * cfg.ndof) + "\n")
         filep.write("Absolute = 1.0e-8\n")
@@ -75,8 +81,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('-rp', type=str, default='.')
     parser.add_argument('-type', type=str, default='free')
+    parser.add_argument('-n_iter', type=int, default=50)
+    parser.add_argument('-dynamics', type=str, default='duffing')
     parser.add_argument('-select', type=str, default='notrandom')
-    parser.add_argument('-ndof', type=int, default=3)
+    parser.add_argument('-ndof', type=int, default=2)
+    parser.add_argument('-l_x', type=float, default=-2.)
+    parser.add_argument('-l_y', type=float, default=-2.)
+    parser.add_argument('-u_x', type=float, default=2.)
+    parser.add_argument('-u_y', type=float, default=2.)
     parser.add_argument('-noise', type=float, default=0.05)
     parser.add_argument('-lk', action='store_true')
     args = parser.parse_args()
