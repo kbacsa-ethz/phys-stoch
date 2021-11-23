@@ -27,8 +27,8 @@ from dmm import DMM
 from utils import data_path_from_config
 from plot_utils import *
 
-
 API_KEY = "Bm8mJ7xbMDa77te70th8PNcT8"
+
 
 # saves the model and optimizer states to disk
 def save_checkpoint(model, optim, epoch, loss, save_path):
@@ -43,7 +43,6 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 def train(cfg):
     hyper_params = vars(cfg)
     experiment = Experiment(project_name="phys-stoch", api_key=API_KEY, disabled=not cfg.comet)
-    experiment.set_name("hello")
     experiment.log_parameters(hyper_params)
 
     # add DLSC parameters like seed
@@ -74,6 +73,9 @@ def train(cfg):
     Path(save_path).mkdir(parents=True, exist_ok=True)
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
         json.dump(cfg.__dict__, f, indent=2)
+
+    model_name = cfg.config_path.split("/")[-1].split(".")[0] + "_model"  # does not work on windows
+    experiment.set_name(model_name + "_" + dt_string)
 
     states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
     observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
@@ -159,8 +161,6 @@ def train(cfg):
     adam = ClippedAdam(adam_params)
     elbo = Trace_ELBO()
     svi = SVI(vae.model, vae.guide, adam, loss=elbo)
-
-    model_name = cfg.config_path.split("/")[-1].split(".")[0] + "_model"  # does not work on windows
 
     with experiment.train():
         global_step = 0
@@ -360,7 +360,7 @@ def train(cfg):
     api = API(api_key=API_KEY)
     url = experiment.url.split("/")[-1]
     log_exp = api.get(os.path.join("kbacsa-ethz", "phys-stoch", url))
-    log_exp.register_model(model_name)
+    log_exp.register_model(model_name + "_" + dt_string)
     return mse_loss
 
 
