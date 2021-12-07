@@ -29,7 +29,7 @@ def main(ag, cfg):
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
     force_freq = float(cfg['Forces']['Frequency'])
-    force_shift = int(cfg['Forces']['Shift'])
+    force_shift = float(cfg['Forces']['Shift'])
     force_dof = np.array(list(map(int, cfg['Forces']['Inputs'].split(','))))
 
     # parse simulation parameters
@@ -90,8 +90,11 @@ def main(ag, cfg):
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
         for dof in force_dof:
-            impulse_shift = np.random.randint(0, len(tics) // 2)
-            force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
+            if force_type == "impulse":
+                impulse_shift = np.random.randint(0, len(tics) // 2)
+                force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
+            if force_type == "sinusoidal":
+                force_input[dof, :] = (force_amp * np.random.random()) * force_fct(2*np.pi*(force_freq*np.random.random())*tics*dt)
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
@@ -132,7 +135,9 @@ def main(ag, cfg):
         energy_tensor[iter_idx, :, 4] = kinetic.flatten() + potential.flatten()
 
     np.save(os.path.join(save_path, 'state.npy'), state_tensor, allow_pickle=True)
+    np.save(os.path.join(save_path, 'state_param.npy'), np.concatenate([state_tensor.mean(axis=(0, 1)), state_tensor.std(axis=(0, 1))]))
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
+    np.save(os.path.join(save_path, 'obs_param.npy'), np.concatenate([obs_tensor.mean(axis=(0, 1)), obs_tensor.std(axis=(0, 1))]))
     np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
@@ -143,7 +148,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_impulse_dissipative.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_sinusoidal_dissipative.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

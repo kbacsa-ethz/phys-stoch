@@ -74,7 +74,7 @@ def train(cfg):
     with open(os.path.join(save_path, 'config.txt'), 'w') as f:
         json.dump(cfg.__dict__, f, indent=2)
 
-    model_name = cfg.config_path.split("/")[-1].split(".")[0] + "_model"  # does not work on windows
+    model_name = cfg.config_path.split("/")[-1].split(".")[0]  # does not work on windows
     experiment.set_name(model_name + "_" + dt_string)
 
     states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
@@ -360,7 +360,7 @@ def train(cfg):
     api = API(api_key=API_KEY)
     url = experiment.url.split("/")[-1]
     log_exp = api.get(os.path.join("kbacsa-ethz", "phys-stoch", url))
-    log_exp.register_model(model_name + "_" + dt_string)
+    log_exp.register_model(model_name)
     return mse_loss
 
 
