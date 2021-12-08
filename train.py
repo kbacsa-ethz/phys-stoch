@@ -22,7 +22,7 @@ from pyro.optim import ClippedAdam
 
 # visualization
 from phys_data import TrajectoryDataset
-from models import Emitter, GatedTransition, Combiner, RNNEncoder, ODEEncoder, SymplecticODEEncoder
+from models import *
 from dmm import DMM
 from utils import data_path_from_config
 from plot_utils import *
@@ -140,13 +140,33 @@ def train(cfg):
     z_dim = int(states.shape[-1] * 2 / 3)
     emitter = Emitter(input_dim, z_dim, cfg.emission_dim, cfg.emission_layers)
     transition = GatedTransition(z_dim, cfg.transmission_dim)
-    combiner = Combiner(z_dim, z_dim)
-    encoder = SymplecticODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
-                                   non_linearity='relu', batch_first=True,
-                                   rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                   integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
-                                   learn_kinetic=cfg.learn_kinetic,
-                                   dt=cfg.dt, discretization=cfg.discretization)
+    if cfg.encoder_type == "birnn":
+        combiner = CombinerBi(z_dim, z_dim)
+    else:
+        combiner = Combiner(z_dim, z_dim)
+
+    if cfg.encoder_type == "rnn":
+        encoder = RNNEncoder(input_dim, z_dim,
+                             non_linearity='relu', batch_first=True,
+                             num_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate)
+    elif cfg.encoder_type == "birnn":
+        encoder = BiRNNEncoder(input_dim, z_dim,
+                               non_linearity='relu', batch_first=True,
+                               num_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate)
+    elif cfg.encoder_type == "ode":
+        encoder = ODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
+                             non_linearity='relu', batch_first=True,
+                             rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+                             dt=cfg.dt, discretization=cfg.discretization)
+    elif cfg.encoder_type == "symplectic_ode":
+        encoder = SymplecticODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
+                                       non_linearity='relu', batch_first=True,
+                                       rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+                                       integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
+                                       learn_kinetic=cfg.learn_kinetic,
+                                       dt=cfg.dt, discretization=cfg.discretization)
+    else:
+        raise NotImplementedError
 
     # create model
     vae = DMM(emitter, transition, combiner, encoder, z_dim,
@@ -265,10 +285,6 @@ def train(cfg):
                     # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
                     input_tensor = torch.from_numpy(q).float()
 
-                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
-                # latent_potential = vae.encoder.latent_func(t_vec, input_tensor).detach().numpy().sum(axis=1)
-                latent_potential /= np.abs(latent_potential).max()
-
                 # phase portrait
                 fig, saved_phases = phase_plot(
                     pred_pos=q,
@@ -283,21 +299,6 @@ def train(cfg):
                     experiment.log_table("{}_{}.csv".format(name, epoch), pd.DataFrame(array))
 
                 experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
-
-                fig = simple_plot(
-                    x_axis=t_vec,
-                    values=[latent_kinetic,
-                            energy[n_re, :time_length, 0],
-                            latent_potential,
-                            energy[n_re, :time_length, 1]],
-                    max_t=100,
-                    names=["learned kinetic", "true kinetic", "learned potential", "true potential"],
-                    title="Energy",
-                    normalized=True,
-                    debug=cfg.debug
-                )
-
-                experiment.log_figure(figure=fig, figure_name="energy_{:02d}".format(epoch))
 
                 # autonomous case
                 z_true = states[..., :z_dim]
@@ -351,10 +352,6 @@ def train(cfg):
                 )
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
-                mass = vae.encoder.latent_func.m_1.data
-                for i in range(z_dim // 2):
-                    experiment.log_metric("mass_{}".format(i), mass[i], step=global_step)
-
                 vae.train()
 
     api = API(api_key=API_KEY)
@@ -375,6 +372,7 @@ if __name__ == '__main__':
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
     parser.add_argument('-ph', '--potential-hidden', type=int, default=60)
     parser.add_argument('-pl', '--potential-layers', type=int, default=2)
+    parser.add_argument('-tenc', '--encoder-type', type=str, default="birnn")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
     parser.add_argument('--dissipative', action='store_true')
