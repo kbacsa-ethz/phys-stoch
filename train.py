@@ -272,18 +272,8 @@ def train(cfg):
                 qdot = qd
                 qdot = qdot[..., None]
 
-                m = np.eye(z_dim // 2)
-                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
-                latent_kinetic = latent_kinetic.flatten()
-
                 time_length = len(q)
                 t_vec = torch.arange(1, time_length + 1) * cfg.dt
-
-                if cfg.dissipative:
-                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
-                else:
-                    # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
-                    input_tensor = torch.from_numpy(q).float()
 
                 # phase portrait
                 fig, saved_phases = phase_plot(
