@@ -285,7 +285,7 @@ class ODEEncoder(nn.Module):
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
         for t in reversed(range(seq_len-1)):
-            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='rk4')[-1]
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='midpoint')[-1]
         return ode_output
 
 
