@@ -41,7 +41,8 @@ def save_checkpoint(model, optim, epoch, loss, save_path):
 
 def train(cfg):
     hyper_params = vars(cfg)
-    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not cfg.comet)
+    experiment = Experiment(project_name="phys-stoch", api_key="Bm8mJ7xbMDa77te70th8PNcT8", disabled=not cfg.comet,
+                            display_summary_level=0)
     experiment.log_parameters(hyper_params)
 
     # add DLSC parameters like seed
@@ -224,8 +225,8 @@ def train(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
-                fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
-                experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
+                #fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
+                #experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
 
                 ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
                 ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
@@ -266,17 +267,22 @@ def train(cfg):
                 latent_potential /= np.abs(latent_potential).max()
 
                 # phase portrait
-                fig, saved_phases = phase_plot(
+                fig, saved_phases, lstsq = phase_plot(
                     pred_pos=q,
                     pred_vec=qd,
                     grnd_pos=states_normalize[n_re, :, :z_dim // 2],
                     grnd_vec=states_normalize[n_re, :, z_dim // 2:],
                     title="Phase",
+                    dt=cfg.dt,
                     debug=cfg.debug
                 )
 
                 for name, array in zip(['normal', 'cross', 'cross_inverted', 'inverted'], saved_phases):
                     experiment.log_table("{}_{}.csv".format(name, epoch), pd.DataFrame(array))
+
+                i = 0
+                for save_fig in lstsq:
+                    experiment.log_figure(figure=save_fig, figure_name="welch_{}_{:02d}".format(i, epoch))
 
                 experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
 

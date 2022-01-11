@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import normalize
+from rotation import least_square_transform
 from calculate_rmsd import kabsch_fit
 from MEMD_all import memd
 
@@ -56,7 +57,7 @@ def matrix_plot(matrix, title, debug=False):
     return fig
 
 
-def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
+def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, dt, title, debug=False):
 
     n_plots = pred_pos.shape[-1]
 
@@ -151,7 +152,10 @@ def phase_plot(pred_pos, pred_vec, grnd_pos, grnd_vec, title, debug=False):
 
     if debug:
         plt.show()
-    return fig, saves
+
+    save_figs = [least_square_transform(save, dt, name) for save, name in zip(saves, ['normal', 'inverted', 'cross', 'cross_inverted'])]
+
+    return fig, saves, save_figs
 
 
 def plot_emd(state_space, debug=False):
