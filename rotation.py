@@ -1,6 +1,8 @@
 # code inspired by https://github.com/nghiaho12/rigid_transform_3D
 
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.signal
 
 
 # Input: expects 2xN matrix of points
@@ -50,3 +52,44 @@ def rigid_transform_2D(A, B):
 
     t = -R @ centroid_A + centroid_B
     return R @ A + t
+
+
+# Code from Eleni's matlab script
+def least_square_transform(traj, dt, name):
+    fs = 1 / dt
+    shift = 0
+    avg = traj.mean()
+    traj = traj - avg
+    learned = traj[:, :2]
+    ground = traj[shift:, 2:4]
+    N = min(learned.shape[0], ground.shape[0])
+    f1, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    f1.suptitle('{} welch spectrums'.format(name), fontsize=16)
+    freq, welch = scipy.signal.welch(learned.T, fs=fs, window='hamming')
+    ax1.semilogy(freq, welch[0], label='learned 1')
+    ax1.semilogy(freq, welch[1], label='learned 2')
+    ax1.set_xlabel('Frequency [Hz]')
+    ax1.set_ylabel('Power/freq [dB/Hz]')
+    ax1.set_title('Welch power spectral density estimate')
+    ax1.legend()
+    freq, welch = scipy.signal.welch(ground.T, fs=fs, window='hamming')
+    ax2.semilogy(freq, welch[0], label='true 1')
+    ax2.semilogy(freq, welch[1], label='true 2')
+    ax2.set_xlabel('Frequency [Hz]')
+    ax2.set_ylabel('Power/freq [dB/Hz]')
+    ax2.set_title('Welch power spectral density estimate')
+    ax2.legend()
+
+    inter = range(N)
+    learned = learned[inter]
+    ground = ground[inter]
+    T, _, _, _ = np.linalg.lstsq(learned, ground, rcond=None)
+    learned_rot = learned @ T
+    f2, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    f2.suptitle('{} phase space'.format(name), fontsize=16)
+    ax1.plot(learned_rot[inter, 0], learned_rot[inter, 1])
+    ax1.set_title('Learned rotated')
+    ax2.plot(ground[inter, 0], ground[inter, 1])
+    ax2.set_title('Ground truth')
+
+    return f1, f2
