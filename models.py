@@ -145,12 +145,46 @@ class Combiner(nn.Module):
         return loc, scale
 
 
+class CombinerBi(nn.Module):
+    """
+    Combiner that takes into account both directions
+    """
+
+    def __init__(self, z_dim, encoder_dim):
+        super().__init__()
+        # initialize the three linear transformations used in the neural network
+        self.lin_z_to_hidden = nn.Linear(z_dim, encoder_dim)
+        self.lin_hidden_to_loc = nn.Linear(encoder_dim, z_dim)
+        self.lin_hidden_to_scale = nn.Linear(encoder_dim, z_dim)
+        # initialize the two non-linearities used in the neural network
+        self.tanh = nn.Tanh()
+        self.softplus = nn.Softplus()
+
+    def forward(self, z_t_1, h_rnn):
+        """
+        Given the latent z at at a particular time step t-1 as well as the hidden
+        state of the encoder `h(x_{t:T})` we return the mean and scale vectors that
+        parameterize the (diagonal) gaussian distribution `q(z_t | z_{t-1}, x_{t:T})`
+        """
+        # combine the encoder hidden state with a transformed version of z_t_1
+        h1 = h_rnn[:, 0, :]
+        h2 = h_rnn[:, 1, :]
+
+        h_combined = 1/3 * (self.tanh(self.lin_z_to_hidden(z_t_1)) + h1 + h2)
+        # use the combined hidden state to compute the mean used to sample z_t
+        loc = self.lin_hidden_to_loc(h_combined)
+        # use the combined hidden state to compute the scale used to sample z_t
+        scale = self.softplus(self.lin_hidden_to_scale(h_combined))
+        # return loc, scale which can be fed into Normal
+        return loc, scale
+
+
 class RNNEncoder(nn.Module):
     """
     Parameterizes `q(z_t | x_{t:T})`
     """
 
-    def __init__(self, input_size, hidden_size, non_linearity, batch_first, num_layers, dropout, seq_len):
+    def __init__(self, input_size, hidden_size, non_linearity, batch_first, num_layers, dropout):
         super().__init__()
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, nonlinearity=non_linearity,
@@ -158,40 +192,64 @@ class RNNEncoder(nn.Module):
 
         self.h_0 = nn.Parameter(torch.zeros(num_layers, 1, hidden_size))
         self.hidden_size = hidden_size
-        self.seq_len = seq_len
         self.num_layers = num_layers
 
-    def forward(self, x):
-        x_reversed = utils.reverse_sequences(x, [self.seq_len] * x.size(0))
+    def forward(self, x, seq_len):
+        x_reversed = utils.reverse_sequences(x, [seq_len] * x.size(0))
 
         # do sequence packing
         x_reversed = nn.utils.rnn.pack_padded_sequence(x_reversed,
-                                                       [self.seq_len] * x.size(0),
+                                                       [seq_len] * x.size(0),
                                                        batch_first=True)
 
         h_0_contig = self.h_0.expand(self.num_layers, x.size(0), self.rnn.hidden_size).contiguous()
         rnn_output, _ = self.rnn(x_reversed, h_0_contig)
-        rnn_output = utils.pad_and_reverse(rnn_output, [self.seq_len] * x.size(0))
+        rnn_output = utils.pad_and_reverse(rnn_output, [seq_len] * x.size(0))
+        return rnn_output
+
+
+class BiRNNEncoder(nn.Module):
+    """
+    Parameterizes `q(z_t | x_{t:T})`
+    """
+
+    def __init__(self, input_size, hidden_size, non_linearity, batch_first, num_layers, dropout):
+        super().__init__()
+
+        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, nonlinearity=non_linearity,
+                          batch_first=batch_first, bidirectional=True, num_layers=num_layers, dropout=dropout)
+
+        self.h_0 = nn.Parameter(torch.zeros(2*num_layers, 1, hidden_size))
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+    def forward(self, x, seq_len):
+        h_0_contig = self.h_0.expand(2 * self.num_layers, x.size(0), self.hidden_size).contiguous()
+        rnn_output, _ = self.rnn(x, h_0_contig)
+        rnn_output = rnn_output.view(rnn_output.size(0), rnn_output.size(1), 2, self.rnn.hidden_size)
         return rnn_output
 
 
 class LatentODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20):
+    def __init__(self, latent_dim=4, nhidden=20, hlayers=0):
         super(LatentODEfunc, self).__init__()
-        self.elu = nn.ELU(inplace=True)
-        self.fc1 = nn.Linear(latent_dim, nhidden)
-        self.fc2 = nn.Linear(nhidden, nhidden)
-        self.fc3 = nn.Linear(nhidden, latent_dim)
+        self.activation = nn.Softplus()
+        self.linears = nn.ModuleList([])
+        self.linears.append(nn.Linear(latent_dim, nhidden))
+
+        for layer in range(hlayers):
+            self.linears.append(nn.Linear(nhidden, nhidden))
+
+        self.fc = nn.Linear(nhidden, latent_dim)
+        self.nlayers = len(self.linears)
         self.nfe = 0
 
     def forward(self, t, x):
         self.nfe += 1
-        out = self.fc1(x)
-        out = self.elu(out)
-        out = self.fc2(out)
-        out = self.elu(out)
-        out = self.fc3(out)
+        for layer in range(self.nlayers):
+            x = self.activation(self.linears[layer](x))
+        out = self.fc(x)
         return out
 
 
@@ -200,35 +258,34 @@ class ODEEncoder(nn.Module):
     Parameterizes `q(z_t | x_{t:T})`
     """
 
-    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, seq_len, dt, discretization):
+    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
         super().__init__()
 
-        self.latent_func = LatentODEfunc(z_dim, hidden_dim)
+        self.latent_func = LatentODEfunc(z_dim, hidden_dim, n_layers)
 
         self.rnn = nn.RNN(input_size=input_size, hidden_size=z_dim, nonlinearity=non_linearity,
                           batch_first=batch_first, bidirectional=False, num_layers=rnn_layers, dropout=dropout)
 
         self.h_0 = nn.Parameter(torch.zeros(rnn_layers, 1, z_dim))
         self.rnn_layers = rnn_layers
-        self.seq_len = seq_len
         self.time = torch.arange(0, dt, dt/discretization)
 
-    def forward(self, x):
-        x_reversed = utils.reverse_sequences(x, [self.seq_len] * x.size(0))
+    def forward(self, x, seq_len):
+        x_reversed = utils.reverse_sequences(x, [seq_len] * x.size(0))
 
         # do sequence packing
         x_reversed = nn.utils.rnn.pack_padded_sequence(x_reversed,
-                                                       [self.seq_len] * x.size(0),
+                                                       [seq_len] * x.size(0),
                                                        batch_first=True)
 
         h_0_contig = self.h_0.expand(self.rnn_layers, x.size(0), self.rnn.hidden_size).contiguous()
         rnn_output, _ = self.rnn(x_reversed, h_0_contig)
-        rnn_output = utils.pad_and_reverse(rnn_output, [self.seq_len] * x.size(0))
+        rnn_output = utils.pad_and_reverse(rnn_output, [seq_len] * x.size(0))
 
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
-        for t in reversed(range(self.seq_len-1)):
-            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time)[-1]
+        for t in reversed(range(seq_len-1)):
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='midpoint')[-1]
         return ode_output
 
 
