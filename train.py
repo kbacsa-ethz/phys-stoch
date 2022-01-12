@@ -291,7 +291,8 @@ def train(cfg):
 
                 i = 0
                 for save_fig in lstsq:
-                    experiment.log_figure(figure=save_fig, figure_name="welch_{}_{:02d}".format(i, epoch))
+                    experiment.log_figure(figure=save_fig[0], figure_name="welch_{}_{:02d}".format(i, epoch))
+                    experiment.log_figure(figure=save_fig[1], figure_name="lstsq_{}_{:02d}".format(i, epoch))
 
                 experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
 
@@ -382,7 +383,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
