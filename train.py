@@ -291,6 +291,7 @@ def train(cfg):
 
                 i = 0
                 for save_fig in lstsq:
+                    i = i + 1
                     experiment.log_figure(figure=save_fig[0], figure_name="welch_{}_{:02d}".format(i, epoch))
                     experiment.log_figure(figure=save_fig[1], figure_name="lstsq_{}_{:02d}".format(i, epoch))
 
