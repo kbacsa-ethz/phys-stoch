@@ -360,12 +360,12 @@ def train(cfg):
         sample_obs = sample['obs'][:, : n_len + 1, :].float()
         sample_obs = sample_obs.to(device)
         Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
+        Obs = Obs.detach() * obs_std + obs_mean
+        Obs_scale = Obs_scale.detach() * obs_std + obs_mean
         ground_truth = sample['state'][:, : n_len, obs_idx].float()
         ground_truth = ground_truth.to(device)
-        mse[idx] = ((ground_truth - Obs) ** 2).mean().item()
-
-        errors = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).sum()
-        error[idx] = errors / torch.numel(Obs)
+        mse[idx] = torch.sqrt((((ground_truth - Obs) / ground_truth) ** 2).mean()).item()
+        error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
 
     print("Mean MSE is {}".format(mse.mean().item()))
     print("Mean error is {:.2%}".format(error.mean().item()))
