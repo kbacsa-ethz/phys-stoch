@@ -248,8 +248,8 @@ def train(cfg):
                 sample = sample.to(device)
                 Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
 
-                #fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
-                #experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
+                # fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
+                # experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
 
                 ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
                 ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
@@ -264,6 +264,31 @@ def train(cfg):
                 Z_gen_scale = Z_gen_scale.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
+
+                ground_truth = states[n_re]
+                time_index = np.arange(0, n_len * cfg.dt, cfg.dt, dtype=float)
+                names = []
+                names += ["z_{}".format(i) for i in range(Z.shape[-1])]
+                names += ["z_gen_{}".format(i) for i in range(Z_gen.shape[-1])]
+                names += ["z_gen_scale{}".format(i) for i in range(Z_gen_scale.shape[-1])]
+                names += ["obs_{}".format(i) for i in range(Obs.shape[-1])]
+                names += ["obs_scale_{}".format(i) for i in range(Obs_scale.shape[-1])]
+                names += ["ground_{}".format(i) for i in range(ground_truth.shape[-1])]
+
+                df = pd.DataFrame(
+                    data=np.concatenate([
+                        Z.squeeze(),
+                        Z_gen.squeeze(),
+                        Z_gen_scale.squeeze(),
+                        Obs.squeeze(),
+                        Obs_scale.squeeze(),
+                        ground_truth[:n_len]
+                    ], axis=1),
+                    index=time_index,
+                    columns=names
+                )
+
+                experiment.log_table("obs_and_states_{}.csv".format(epoch), df)
 
                 # TODO make this for any number of states
                 # TODO get force derivatives
@@ -362,7 +387,8 @@ def train(cfg):
         ground_truth = ground_truth.to(device)
         mse[idx] = ((ground_truth - Obs) ** 2).mean().item()
 
-        errors = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).sum()
+        errors = torch.logical_or(torch.lt(ground_truth, (Obs - 2 * Obs_scale)),
+                                  torch.gt(ground_truth, (Obs + 2 * Obs_scale))).sum()
         error[idx] = errors / torch.numel(Obs)
 
     print("Mean MSE is {}".format(mse.mean().item()))
