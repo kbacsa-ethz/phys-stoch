@@ -316,7 +316,9 @@ def train(cfg):
 
                 i = 0
                 for save_fig in lstsq:
-                    experiment.log_figure(figure=save_fig, figure_name="welch_{}_{:02d}".format(i, epoch))
+                    i = i + 1
+                    experiment.log_figure(figure=save_fig[0], figure_name="welch_{}_{:02d}".format(i, epoch))
+                    experiment.log_figure(figure=save_fig[1], figure_name="lstsq_{}_{:02d}".format(i, epoch))
 
                 experiment.log_figure(figure=fig, figure_name="phase_{:02d}".format(epoch))
 
@@ -383,13 +385,12 @@ def train(cfg):
         sample_obs = sample['obs'][:, : n_len + 1, :].float()
         sample_obs = sample_obs.to(device)
         Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
+        Obs = Obs.detach() * obs_std + obs_mean
+        Obs_scale = Obs_scale.detach() * obs_std + obs_mean
         ground_truth = sample['state'][:, : n_len, obs_idx].float()
         ground_truth = ground_truth.to(device)
-        mse[idx] = ((ground_truth - Obs) ** 2).mean().item()
-
-        errors = torch.logical_or(torch.lt(ground_truth, (Obs - 2 * Obs_scale)),
-                                  torch.gt(ground_truth, (Obs + 2 * Obs_scale))).sum()
-        error[idx] = errors / torch.numel(Obs)
+        mse[idx] = torch.sqrt((((ground_truth - Obs) / ground_truth) ** 2).mean()).item()
+        error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
 
     print("Mean MSE is {}".format(mse.mean().item()))
     print("Mean error is {:.2%}".format(error.mean().item()))
@@ -408,7 +409,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
