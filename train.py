@@ -157,12 +157,13 @@ def train(cfg):
         encoder = ODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
                              non_linearity='relu', batch_first=True,
                              rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
+                             order=cfg.integrator_order,
                              dt=cfg.dt, discretization=cfg.discretization)
     elif cfg.encoder_type == "symplectic_node":
         encoder = SymplecticODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
                                        non_linearity='relu', batch_first=True,
                                        rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                       integrator=cfg.symplectic_integrator, dissipative=cfg.dissipative,
+                                       order=cfg.integrator_order, dissipative=cfg.dissipative,
                                        learn_kinetic=cfg.learn_kinetic,
                                        dt=cfg.dt, discretization=cfg.discretization)
     else:
@@ -418,7 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=2)
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-symp', '--symplectic-integrator', type=str, default='velocity_verlet')
+    parser.add_argument('-ord', '--integrator-order', type=int, default=2)
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
