@@ -254,9 +254,10 @@ def train(cfg):
                 ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
                 ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
                 ground_truth = ground_truth.to(device)
-                mse_loss = ((ground_truth - Obs) ** 2).mean().item()
-                experiment.log_metric("mse_loss", mse_loss, step=global_step)
-                print("Mean validation error is {}".format(mse_loss))
+
+                abs_loss = torch.abs((Obs - ground_truth) / ground_truth).mean().item()
+                experiment.log_metric("abs_loss", abs_loss, step=global_step)
+                print("Abs validation error is {}".format(abs_loss))
 
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
@@ -389,7 +390,7 @@ def train(cfg):
         Obs_scale = Obs_scale.detach() * obs_std + obs_mean
         ground_truth = sample['state'][:, : n_len, obs_idx].float()
         ground_truth = ground_truth.to(device)
-        mse[idx] = torch.sqrt((((ground_truth - Obs) / ground_truth) ** 2).mean()).item()
+        mse[idx] = torch.abs((Obs- ground_truth) / ground_truth).mean().item()
         error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
 
     print("Mean MSE is {}".format(mse.mean().item()))
@@ -401,7 +402,7 @@ def train(cfg):
     url = experiment.url.split("/")[-1]
     log_exp = api.get(os.path.join("kbacsa-ethz", "phys-stoch", url))
     log_exp.register_model(model_name)
-    return mse_loss
+    return abs_loss
 
 
 if __name__ == '__main__':
