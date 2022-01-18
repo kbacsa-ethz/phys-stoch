@@ -258,8 +258,15 @@ class ODEEncoder(nn.Module):
     Parameterizes `q(z_t | x_{t:T})`
     """
 
-    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, dt, discretization):
+    def __init__(self, input_size, z_dim, hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout, order, dt, discretization):
         super().__init__()
+
+        if order == 2:
+            self.method = 'midpoint'
+        elif order == 4:
+            self.method = 'rk4'
+        else:
+            raise NotImplemented
 
         self.latent_func = LatentODEfunc(z_dim, hidden_dim, n_layers)
 
@@ -285,7 +292,7 @@ class ODEEncoder(nn.Module):
         ode_output = torch.zeros_like(rnn_output)
         ode_output[:, -1, :] = rnn_output[:, -1, :]
         for t in reversed(range(seq_len-1)):
-            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method='midpoint')[-1]
+            ode_output[:, t, :] = odeint(self.latent_func, rnn_output[:, t+1, :], self.time, method=self.method)[-1]
         return ode_output
 
 
@@ -378,9 +385,16 @@ class SymplecticODEEncoder(nn.Module):
     def __init__(self,
                  input_size, z_dim,
                  hidden_dim, n_layers, non_linearity, batch_first, rnn_layers, dropout,
-                 integrator, dissipative, learn_kinetic,
+                 order, dissipative, learn_kinetic,
                  dt, discretization):
         super().__init__()
+
+        if order == 2:
+            integrator = 'velocity_verlet'
+        elif order == 4:
+            integrator = 'yoshida4th'
+        else:
+            raise NotImplemented
 
         if dissipative:
             integrator += '_dissipative'
