@@ -252,14 +252,6 @@ def train(cfg):
                 # fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
                 # experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
 
-                ground_truth = np.expand_dims(states_normalize[n_re], axis=0)
-                ground_truth = torch.from_numpy(ground_truth[:, : n_len, obs_idx]).float()
-                ground_truth = ground_truth.to(device)
-
-                abs_loss = torch.abs((Obs - ground_truth) / ground_truth).mean().item()
-                experiment.log_metric("abs_loss", abs_loss, step=global_step)
-                print("Abs validation error is {}".format(abs_loss))
-
                 # unormalize for plots
                 Z = Z.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
                 Z_gen = Z_gen.detach().numpy() * states_std[..., :z_dim] + states_mean[..., :z_dim]
@@ -267,7 +259,14 @@ def train(cfg):
                 Obs = Obs.detach().numpy() * obs_std + obs_mean
                 Obs_scale = Obs_scale.detach().numpy() * obs_std + obs_mean
 
+                ground_truth = np.expand_dims(states[n_re], axis=0)
+                ground_truth = ground_truth[:, : n_len, obs_idx]
+
+                abs_loss = np.abs((Obs - ground_truth) / ground_truth).mean()
+                experiment.log_metric("abs_loss", abs_loss, step=global_step)
+                print("Abs validation error is {}".format(abs_loss))
                 ground_truth = states[n_re]
+
                 time_index = np.arange(0, n_len * cfg.dt, cfg.dt, dtype=float)
                 names = []
                 names += ["z_{}".format(i) for i in range(Z.shape[-1])]
@@ -391,7 +390,7 @@ def train(cfg):
         Obs_scale = Obs_scale.detach() * obs_std + obs_mean
         ground_truth = sample['state'][:, : n_len, obs_idx].float()
         ground_truth = ground_truth.to(device)
-        mse[idx] = torch.abs((Obs- ground_truth) / ground_truth).mean().item()
+        mse[idx] = torch.abs((Obs - ground_truth) / ground_truth).mean().item()
         error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
 
     print("Mean MSE is {}".format(mse.mean().item()))
@@ -419,7 +418,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=2)
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-ord', '--integrator-order', type=int, default=2)
+    parser.add_argument('-ord', '--integrator-order', type=int, default=4)
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
