@@ -267,7 +267,31 @@ def train(cfg):
                 print("Abs validation error is {}".format(abs_loss))
                 ground_truth = states[n_re]
 
+                # TODO make this for any number of states
+                # TODO get force derivatives
+                q = Z[n_re, :, :z_dim // 2]
+                qd = Z[n_re, :, z_dim // 2:]
+                qdot = qd
+                qdot = qdot[..., None]
+
+                # Calculate energy
+                m = np.eye(z_dim // 2)
+                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+                latent_kinetic = latent_kinetic.flatten()
+
+                time_length = len(q)
+                t_vec = torch.arange(1, time_length + 1) * cfg.dt
+
+                if cfg.dissipative:
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
+                else:
+                    # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.from_numpy(q).float()
+
+                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
+
                 time_index = np.arange(0, n_len * cfg.dt, cfg.dt, dtype=float)
+                # TODO Add sample as well to saved arrays
                 names = []
                 names += ["z_{}".format(i) for i in range(Z.shape[-1])]
                 names += ["z_gen_{}".format(i) for i in range(Z_gen.shape[-1])]
@@ -275,6 +299,9 @@ def train(cfg):
                 names += ["obs_{}".format(i) for i in range(Obs.shape[-1])]
                 names += ["obs_scale_{}".format(i) for i in range(Obs_scale.shape[-1])]
                 names += ["ground_{}".format(i) for i in range(ground_truth.shape[-1])]
+                names += ["sample_{}".format(i) for i in range(Obs.shape[-1])]
+                names += ["learned_kinetic_energy"]
+                names += ["learned_potential_energy"]
 
                 df = pd.DataFrame(
                     data=np.concatenate([
@@ -283,23 +310,16 @@ def train(cfg):
                         Z_gen_scale.squeeze(),
                         Obs.squeeze(),
                         Obs_scale.squeeze(),
-                        ground_truth[:n_len]
+                        ground_truth[:n_len],
+                        sample[:, :time_length].squeeze(),
+                        np.expand_dims(latent_kinetic, axis=-1),
+                        latent_potential,
                     ], axis=1),
                     index=time_index,
                     columns=names
                 )
 
                 experiment.log_table("obs_and_states_{}.csv".format(epoch), df)
-
-                # TODO make this for any number of states
-                # TODO get force derivatives
-                q = Z[n_re, :, :z_dim // 2]
-                qd = Z[n_re, :, z_dim // 2:]
-                qdot = qd
-                qdot = qdot[..., None]
-
-                time_length = len(q)
-                t_vec = torch.arange(1, time_length + 1) * cfg.dt
 
                 # phase portrait
                 fig, saved_phases, lstsq = phase_plot(
