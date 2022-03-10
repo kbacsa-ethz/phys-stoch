@@ -36,13 +36,17 @@ def offline_plot():
     obs = df[[x for x in df.columns if 'obs' in x]]
     obs_mu = obs[[x for x in obs.columns if 'scale' not in x]]
     obs_sigma = obs[[x for x in obs.columns if 'scale' in x]]
+    sample = df[[x for x in df.columns if 'sample' in x]]
 
     n_obs = obs_mu.shape[1]
 
+    sample = sample.mul(obs_mu.std().values, axis=1)
+    sample = sample.add(obs_mu.mean().values, axis=1)
+
     # bodacious colors
-    colors = sns.color_palette("rocket", 3)
+    colors = sns.color_palette("rocket", 4)
     # Ram's colors, if desired
-    seshadri = ['#c3121e', '#0348a1', '#ffb01c', '#027608', '#0193b0', '#9c5300', '#949c01', '#7104b5']
+    colors = ['#c3121e', '#0348a1', '#ffb01c', '#027608', '#0193b0', '#9c5300', '#949c01', '#7104b5']
     #            0sangre,   1neptune,  2pumpkin,  3clover,   4denim,    5cocoa,    6cumin,    7berry
 
     # plot observations
@@ -54,6 +58,7 @@ def offline_plot():
     for i in range(n_obs):
         y1 = obs_mu['obs_{}'.format(i)]
         y2 = ground['ground_{}'.format(obs_idx[i])]
+        sample_y = sample['sample_{}'.format(i)]
         bound = obs_sigma['obs_scale_{}'.format(i)]
         lower_bound = y1 - bound
 
@@ -67,6 +72,7 @@ def offline_plot():
         plt.plot(time, y1, linestyle='-', label='predicted mean', color=colors[0])  # plot data
         plt.plot(time, y2, linestyle='-', label='ground truth', color=colors[1])  # plot data
         plt.fill_between(time, y1 - 2 * bound, y1 + 2 * bound, facecolor=colors[2], alpha=0.3, label=r'2-$\sigma$ range')
+        plt.scatter(time, sample_y, s=2, c=colors[3], label='noisy samples')
 
         # plot params
         plt.xlim([min(time), max(time)])
@@ -112,9 +118,9 @@ def offline_plot():
         T, _, _, _ = np.linalg.lstsq(latent_mat, ground_mat, rcond=None)
         latent_rot = latent_mat @ T
 
-        #plt.plot(x, y)
-        plt.plot(x_g, y_g, color=colors[0])
-        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1])
+        plt.plot(x_g, y_g, color=colors[0], linestyle='dashed',  linewidth=0.5, label='original')
+        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1], label='predicted (rotated)')
+        plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
 
     # TODO Automate this
     latent_swap = latent.reindex(columns=['z_0', 'z_1', 'z_3', 'z_2'])
@@ -129,13 +135,19 @@ def offline_plot():
         T, _, _, _ = np.linalg.lstsq(latent_mat, ground_mat, rcond=None)
         latent_rot = latent_mat @ T
 
-        plt.plot(x_g, y_g, color=colors[0])
-        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1])
-    plt.show()
+        plt.plot(x_g, y_g, color=colors[0], linestyle='dashed', linewidth=0.5, label='original')
+        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1], label='predicted (rotated)')
+        plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
 
     # plot energy
-    # TODO Add energy to saved dataframe
+    # Not that useful
+    fig = plt.figure(3, figsize=(20, 10))
 
+    plt.plot(df['learned_kinetic_energy'])
+    plt.plot(df['learned_potential_energy'])
+
+
+    plt.show()
     # plt.savefig('data_for_exercises/plotting/generic_plot.png', dpi=300,bbox_inches="tight")
 
     return 0
