@@ -91,10 +91,10 @@ def train(cfg):
     states_normalize = (states - states_mean) / states_std
 
     # Save normalization parameters
-    experiment.log_other("states_mean", states_mean)
-    experiment.log_other("states_std", states_std)
-    experiment.log_other("obs_mean", obs_mean)
-    experiment.log_other("obs_std", obs_std)
+    print("states_mean: {}".format(states_mean))
+    print("states_std: {}".format(states_std))
+    print("obs_mean: {}".format(obs_mean))
+    print("obs_std: {}".format(obs_std))
 
     n_exp = states.shape[0]
     observations_windowed = []
