@@ -90,6 +90,12 @@ def train(cfg):
     observations_normalize = (observations - obs_mean) / obs_std
     states_normalize = (states - states_mean) / states_std
 
+    # Save normalization parameters
+    experiment.log_asset_data(states_mean)
+    experiment.log_asset_data(states_std)
+    experiment.log_asset_data(obs_mean)
+    experiment.log_asset_data(obs_std)
+
     n_exp = states.shape[0]
     observations_windowed = []
     states_windowed = []
@@ -302,6 +308,7 @@ def train(cfg):
                 )
 
                 experiment.log_table("obs_and_states_{}.csv".format(epoch), df)
+
 
                 # phase portrait
                 fig, saved_phases, lstsq = phase_plot(
