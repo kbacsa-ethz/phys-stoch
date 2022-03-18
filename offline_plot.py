@@ -24,7 +24,17 @@ def offline_plot():
     # TODO How can this be passed automatically ?
     obs_idx = [0, 1, 4, 5]
     z_dim = 4
-    df = pd.read_csv('obs_and_states_29.csv', index_col=0)
+
+    case = 'duffing'
+
+    if case == 'duffing':
+        obs_mean = np.array([[[-0.00066353, -0.0009563, 0.00039857, 0.00119788]]])
+        obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
+    if case == 'pendulum':
+        obs_mean = np.array([[[0.00423583, -0.02556212, -0.00433946, -0.00444246]]])
+        obs_std = np.array([[[0.54962711, 1.61728878, 0.8287365, 1.092226]]])
+
+    df = pd.read_csv('plot_data/{}.csv'.format(case), index_col=0)
 
     print(df)
     print(df.columns)
@@ -40,13 +50,15 @@ def offline_plot():
 
     n_obs = obs_mu.shape[1]
 
-    sample = sample.mul(obs_mu.std().values, axis=1)
-    sample = sample.add(obs_mu.mean().values, axis=1)
+    sample = sample.mul(obs_std.squeeze(), axis=1)
+    sample = sample.add(obs_mean.squeeze(), axis=1)
 
     # bodacious colors
-    colors = sns.color_palette("rocket", 4)
+    colors = sns.color_palette("viridis", 4)
     # Ram's colors, if desired
-    colors = ['#c3121e', '#0348a1', '#ffb01c', '#027608', '#0193b0', '#9c5300', '#949c01', '#7104b5']
+
+    #colors = ["#00ffb6", "#a6ffe6", "#ababab", "#00ffc9"]
+    #colors = ['#c3121e', '#0348a1', '#ffb01c', '#027608', '#0193b0', '#9c5300', '#949c01', '#7104b5']
     #            0sangre,   1neptune,  2pumpkin,  3clover,   4denim,    5cocoa,    6cumin,    7berry
 
     # plot observations
@@ -90,7 +102,7 @@ def offline_plot():
         # plt.yticks(yticks)
 
         plt.xlabel(r'time [s]', fontsize=14)
-        plt.ylabel(r'position [m]', fontsize=14)  # label the y axis
+        plt.ylabel(r'latent', fontsize=14)  # label the y axis
 
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
     #plt.show()
@@ -106,7 +118,6 @@ def offline_plot():
     ground = (ground - ground.min()) / (ground.max() - ground.min())
 
     # regular phase
-    # TODO Needs beautification
     for i in range(z_dim // 2):
         xtr_subsplot = fig.add_subplot(gs[i])
 
@@ -118,8 +129,10 @@ def offline_plot():
         T, _, _, _ = np.linalg.lstsq(latent_mat, ground_mat, rcond=None)
         latent_rot = latent_mat @ T
 
+        plt.xlabel(r'$x_1$', fontsize=14)
+        plt.ylabel(r'$\dot{x}_1$', fontsize=14)
         plt.plot(x_g, y_g, color=colors[0], linestyle='dashed',  linewidth=0.5, label='original')
-        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1], label='predicted (rotated)')
+        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[-1], label='predicted (rotated)')
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
 
     # TODO Automate this
@@ -136,20 +149,11 @@ def offline_plot():
         latent_rot = latent_mat @ T
 
         plt.plot(x_g, y_g, color=colors[0], linestyle='dashed', linewidth=0.5, label='original')
-        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[1], label='predicted (rotated)')
+        plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[-1], label='predicted (rotated)')
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
-
-    # plot energy
-    # Not that useful
-    fig = plt.figure(3, figsize=(20, 10))
-
-    plt.plot(df['learned_kinetic_energy'])
-    plt.plot(df['learned_potential_energy'])
-
 
     plt.show()
     # plt.savefig('data_for_exercises/plotting/generic_plot.png', dpi=300,bbox_inches="tight")
-
     return 0
 
 

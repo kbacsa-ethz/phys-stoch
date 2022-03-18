@@ -82,7 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('-rp', type=str, default='.')
     parser.add_argument('-type', type=str, default='free')
     parser.add_argument('-n_iter', type=int, default=50)
-    parser.add_argument('-dynamics', type=str, default='duffing')
+    parser.add_argument('-dynamics', type=str, default='pendulum')
     parser.add_argument('-ext', type=str, default='free')
     parser.add_argument('-amplitude', type=float, default=10.0)
     parser.add_argument('-freq', type=float, default=3)

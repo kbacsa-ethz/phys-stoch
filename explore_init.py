@@ -1,11 +1,10 @@
 import argparse
 import configparser
 import os
-from pathlib import Path
+
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
-import numpy as np
-from tqdm import tqdm
 
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
@@ -69,7 +68,7 @@ def main(ag, cfg):
 
     flow_map = np.zeros([nx, ny, 2*n_dof])
 
-    for i in range(nx):
+    for i in tqdm(range(nx)):
         for j in range(ny):
             w0 = np.array([x[i], x[i], y[j], y[j]])
             # Call the ODE solver.
@@ -117,6 +116,8 @@ def main(ag, cfg):
     plt.imshow(ftle[..., 1], extent=[x_min, x_max, y_min, y_max])
     plt.show()
 
+    np.save('ftle_duffing.npy', ftle)
+
     return 0
 
 
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
