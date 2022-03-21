@@ -326,7 +326,6 @@ def train(cfg):
 
                 experiment.log_table("obs_and_states_{}.csv".format(epoch), df)
 
-
                 # phase portrait
                 fig, saved_phases, lstsq = phase_plot(
                     pred_pos=q,
@@ -404,6 +403,7 @@ def train(cfg):
                 vae.train()
 
     vae.eval()
+
     mse = torch.zeros(len(test_dataset))
     error = torch.zeros(len(test_dataset))
     print("Testing on {} samples".format(len(test_dataset)))
