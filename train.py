@@ -280,8 +280,21 @@ def train(cfg):
                 qdot = qd
                 qdot = qdot[..., None]
 
+                m = np.eye(z_dim // 2)
+                latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+                latent_kinetic = latent_kinetic.flatten()
+
                 time_length = len(q)
                 t_vec = torch.arange(1, time_length + 1) * cfg.dt
+
+                if cfg.dissipative:
+                    input_tensor = torch.cat([t_vec.float().unsqueeze(1), torch.from_numpy(q).float()], dim=1)
+                else:
+                    # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
+                    input_tensor = torch.from_numpy(q).float()
+
+                latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
+
                 time_index = np.arange(0, n_len * cfg.dt, cfg.dt, dtype=float)
 
                 names = []
@@ -292,6 +305,8 @@ def train(cfg):
                 names += ["obs_scale_{}".format(i) for i in range(Obs_scale.shape[-1])]
                 names += ["ground_{}".format(i) for i in range(ground_truth.shape[-1])]
                 names += ["sample_{}".format(i) for i in range(Obs.shape[-1])]
+                names += ["learned_kinetic_energy"]
+                names += ["learned_potential_energy"]
 
                 df = pd.DataFrame(
                     data=np.concatenate([
@@ -302,6 +317,8 @@ def train(cfg):
                         Obs_scale.squeeze(),
                         ground_truth[:n_len],
                         sample[:, :time_length].squeeze(),
+                        np.expand_dims(latent_kinetic, axis=-1),
+                        latent_potential,
                     ], axis=1),
                     index=time_index,
                     columns=names
@@ -407,10 +424,6 @@ def train(cfg):
     experiment.log_metric("test_mse", mse.mean().item(), step=global_step)
     experiment.log_metric("outlier_error", error.mean().item(), step=global_step)
 
-    api = API(api_key=API_KEY)
-    url = experiment.url.split("/")[-1]
-    log_exp = api.get(os.path.join("kbacsa-ethz", "phys-stoch", url))
-    log_exp.register_model(model_name)
     return abs_loss
 
 
@@ -427,7 +440,7 @@ if __name__ == '__main__':
     parser.add_argument('-pl', '--potential-layers', type=int, default=2)
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
-    parser.add_argument('-ord', '--integrator-order', type=int, default=4)
+    parser.add_argument('-ord', '--integrator-order', type=int, default=2)
     parser.add_argument('--dissipative', action='store_true')
     parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
