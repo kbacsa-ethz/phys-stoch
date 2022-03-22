@@ -124,7 +124,8 @@ def train(cfg):
                                       cfg.seq_len + 1)
     val_dataset = TrajectoryDataset(states_windowed[val_idx], observations_windowed[val_idx], forces_windowed[val_idx],
                                     obs_idx, cfg.seq_len + 1)
-    test_dataset = TrajectoryDataset(states[test_idx], observations[test_idx],
+    # normalize Obs for model input but keep unnormalized states for absolute MSE and error
+    test_dataset = TrajectoryDataset(states[test_idx], observations_normalize[test_idx],
                                      forces[test_idx], obs_idx, states.shape[1])
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=cfg.batch_size, shuffle=True,
@@ -416,7 +417,7 @@ def train(cfg):
         Obs_scale = Obs_scale.detach() * obs_std + obs_mean
         ground_truth = sample['state'][:, : n_len, obs_idx].float()
         ground_truth = ground_truth.to(device)
-        mse[idx] = torch.abs((Obs - ground_truth) / ground_truth).mean().item()
+        mse[idx] = torch.abs((Obs - ground_truth) / ground_truth + 1e-6).mean().item() # add 1e-6 to avoid inf value
         error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
 
     print("Mean MSE is {}".format(mse.mean().item()))

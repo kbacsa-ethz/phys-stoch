@@ -26,8 +26,6 @@ def test(cfg):
     torch.manual_seed(seed)
     pyro.set_rng_seed(seed)
 
-    checkpoint = torch.load("checkpoints/duffing.pth")
-
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
 
@@ -37,16 +35,50 @@ def test(cfg):
     exp_name = data_path_from_config(config)
     obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
-    states_mean = np.array([[[-0.00018105, - 0.00066574,  0.00030546,  0.00049744,  0.00026192, 0.00142136]]])
-    states_std = np.array([[[0.92813288, 0.92993491, 1.90475785, 2.15138085, 5.02098828, 5.97846263]]])
-    obs_mean = np.array([[[-0.00066353, - 0.0009563,   0.00039857,  0.00119788]]])
-    obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
+    # parse system parameters
+    print(cfg)
+    m = np.diag(np.array(list(map(float, config['System']['M'].split(',')))))
+    n_dof = m.shape[0]
+    c = np.reshape(np.array(list(map(float, config['System']['C'].split(',')))), [n_dof, n_dof])
+    k = np.reshape(np.array(list(map(float, config['System']['K'].split(',')))), [n_dof, n_dof])
+    flow_type = config['System']['Dynamics']
+
+    if flow_type == 'duffing':
+        states_mean = np.array([[[-0.00018105, - 0.00066574,  0.00030546,  0.00049744,  0.00026192, 0.00142136]]])
+        states_std = np.array([[[0.92813288, 0.92993491, 1.90475785, 2.15138085, 5.02098828, 5.97846263]]])
+        obs_mean = np.array([[[-0.00066353, - 0.0009563,   0.00039857,  0.00119788]]])
+        obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
+    elif flow_type == 'linear':
+        if n_dof == 2:
+            states_mean = np.array([[[0.00018988, - 0.00016362,  0.00051457,  0.00066631, - 0.00081405, 0.00091053]]])
+            states_std = np.array([[[1.022071, 0.99691651, 1.57848652, 1.74890221, 3.08154555, 3.63055205]]])
+            obs_mean = np.array([[[-0.0002926, - 0.00045418, - 0.0006774,   0.00068704]]])
+            obs_std = np.array([[[1.04057759, 1.017169, 3.08788495, 3.63614872]]])
+        elif n_dof == 3:
+            states_mean = np.array([[[-0.00025549, - 0.00107307, 0.00053756, 0.0011178, 0.00202821,
+                                      - 0.00032468, - 0.00136179, 0.00390493, - 0.0029966]]])
+            states_std = np.array([[[1.09835695, 1.10784741, 1.04266204, 1.55887367, 1.70636386, 1.56186768,
+                                     2.97918041, 3.69558722, 2.81786847]]])
+            obs_mean = np.array([[[-0.00024014, - 0.00164359, 0.0002457, - 0.00130244, 0.00326799,
+                                   - 0.00305477]]])
+            obs_std = np.array([[[1.11660914, 1.12562405, 1.06152448, 2.98546919, 3.70115486, 2.82496705]]])
+        else:
+            raise NotImplementedError
+    elif flow_type == 'pendulum':
+        states_mean = np.array([[[0.00471831, - 0.02527156, - 0.01187413, - 0.01469576, - 0.00447611, -0.00421897]]])
+        states_std = np.array([[[0.51161866, 1.60491627, 0.51462374, 0.77564956, 0.80426609, 1.07328515]]])
+        obs_mean = np.array([[[0.00423583, - 0.02556212, - 0.00433946, - 0.00444246]]])
+        obs_std = np.array([[[0.54962711, 1.61728878, 0.8287365,  1.092226]]])
+    else:
+        raise NotImplemented
 
     # Save normalization parameters
     print("states_mean: {}".format(states_mean))
     print("states_std: {}".format(states_std))
     print("obs_mean: {}".format(obs_mean))
     print("obs_std: {}".format(obs_std))
+
+    checkpoint = torch.load("checkpoints/{}_{}.pth".format(flow_type, n_dof))
 
     # modules
     input_dim = len(obs_idx)
@@ -89,15 +121,6 @@ def test(cfg):
     vae.to(device)
     vae.eval()
 
-    # parse system parameters
-    print(cfg)
-    system_type = config['System']['Name']
-    flow_type = config['System']['Dynamics']
-    m = np.diag(np.array(list(map(float, config['System']['M'].split(',')))))
-    n_dof = m.shape[0]
-    c = np.reshape(np.array(list(map(float, config['System']['C'].split(',')))), [n_dof, n_dof])
-    k = np.reshape(np.array(list(map(float, config['System']['K'].split(',')))), [n_dof, n_dof])
-
     # parse external forces
     # TODO Add additional types of forces
     force_type = config['Forces']['Type']
@@ -139,8 +162,8 @@ def test(cfg):
         raise NotImplementedError()
 
     # run simulation
-    q0_start = 0.5
-    qdot0_start = 0.5
+    q0_start = 1.0
+    qdot0_start = 0.7
     q0, qdot0 = q0_start * np.ones([n_dof, 1]).squeeze(), qdot0_start * np.ones([n_dof, 1]).squeeze()
     w0 = np.concatenate([q0, qdot0], axis=0)
 
@@ -187,7 +210,7 @@ def test(cfg):
 
     n_len = cfg.seq_len * 10
 
-    n_obs = 4
+    n_obs = len(obs_idx)
     dt = cfg.dt
     time = np.arange(0, n_len * dt, dt, dtype=float)
     obs = (obs - obs_mean) / obs_std
@@ -199,7 +222,7 @@ def test(cfg):
     Obs_scale = Obs_scale.detach() * obs_std + obs_mean
     ground_truth = torch.from_numpy(state[:n_len, obs_idx]).unsqueeze(0).float()
     ground_truth = ground_truth.to(device)
-    mse = torch.abs((Obs - ground_truth) / ground_truth).mean().item()
+    mse = torch.abs((Obs - ground_truth) / (ground_truth + 1e-6)).mean().item() # add 1e-6 to avoid inf
     error = torch.logical_or(torch.lt(ground_truth, (Obs - 2 * Obs_scale)),
                              torch.gt(ground_truth, (Obs + 2 * Obs_scale))).float().mean().item()
     t_vec = torch.arange(1, n_len + 1) * dt
@@ -240,6 +263,8 @@ def test(cfg):
     fig = plt.figure(1, figsize=(20, 10))
     gs = gridspec.GridSpec(n_obs // 2, n_obs // 2)
     gs.update(wspace=0.2, hspace=0.25)  # spacing between subplots
+
+    list_of_names = [r'$x_{}$'.format(i) for i in range(n_dof)] + [r'$\ddot{{x}}_{}$'.format(i) for i in range(n_dof)]
     for i in range(n_obs):
         y1 = Obs[:, :, i].squeeze().detach().numpy()
         y2 = state[:n_len, obs_idx[i]]
@@ -276,9 +301,9 @@ def test(cfg):
         # plt.yticks(yticks)
 
         plt.xlabel(r'time [s]', fontsize=14)
-        plt.ylabel(r'latent', fontsize=14)  # label the y axis
+        plt.ylabel(list_of_names[i], fontsize=14)  # label the y axis
 
-        plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
+        plt.legend(loc='upper right')  # add the legend (will default to 'best' location)
     # plt.show()
 
     # plot phase
@@ -309,6 +334,7 @@ def test(cfg):
         plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[-1], label='predicted (rotated)')
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
 
+    """
     # TODO Automate this
     latent_swap = latent[:, [0, 1, 3, 2]]
     for i in range(z_dim // 2):
@@ -325,12 +351,15 @@ def test(cfg):
         plt.plot(x_g, y_g, color=colors[0], linestyle='dashed', linewidth=0.5, label='original')
         plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[-1], label='predicted (rotated)')
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
+    """
 
     fig = plt.figure(3)
-    plt.plot(time[5:], latent_kinetic.squeeze(), color=colors[0])
-    plt.plot(time[5:], latent_potential.squeeze(), color=colors[1])
-    plt.plot(time[5:], kinetic.squeeze(), color=colors[2])
-    plt.plot(time[5:], potential.squeeze(), color=colors[3])
+    plt.plot(time[5:], latent_kinetic.squeeze(), color=colors[0], label='learned kinetic')
+    plt.plot(time[5:], latent_potential.squeeze(), color=colors[1], label='learned potential')
+    plt.plot(time[5:], kinetic.squeeze(), color=colors[2], label='true kinetic')
+    plt.plot(time[5:], potential.squeeze(), color=colors[3], label='true potential')
+    plt.xlabel(r'time [s]', fontsize=14)
+    plt.ylabel('normalized energy', fontsize=14)  # label the y axis
     plt.show()
     return 0
 
@@ -339,12 +368,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
-    parser.add_argument('-e', '--emission-dim', type=int, default=14)
-    parser.add_argument('-ne', '--emission-layers', type=int, default=1)
-    parser.add_argument('-tr', '--transmission-dim', type=int, default=36)
-    parser.add_argument('-ph', '--potential-hidden', type=int, default=54)
-    parser.add_argument('-pl', '--potential-layers', type=int, default=0)
+    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free_free.ini')
+    parser.add_argument('-e', '--emission-dim', type=int, default=13)
+    parser.add_argument('-ne', '--emission-layers', type=int, default=0)
+    parser.add_argument('-tr', '--transmission-dim', type=int, default=18)
+    parser.add_argument('-ph', '--potential-hidden', type=int, default=21)
+    parser.add_argument('-pl', '--potential-layers', type=int, default=4)
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=1)
     parser.add_argument('-ord', '--integrator-order', type=int, default=2)
