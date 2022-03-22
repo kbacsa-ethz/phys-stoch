@@ -1,5 +1,5 @@
 #!/bin/bash
-python gen_config.py -rp "$PWD" -type free -dynamics linear -type dissipative -ndof 2 -noise 0.30 -n_iter 500
+python gen_config.py -rp "$PWD" -type free -dynamics linear -type dissipative -ndof 2 -noise 0.15 -n_iter 500
 python simulation.py --root-path "$PWD" --config-path "config/2springmass_linear_dissipative.ini"
 python train.py --root-path "$PWD" --config-path "config/2springmass_linear_dissipative.ini" \
  --dissipative \
