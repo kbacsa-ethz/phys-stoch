@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate configuration and data
-python gen_config.py -rp "$PWD" -type free -dynamics linear -ndof 2 -noise 0.20 -n_iter 500 -l_x 0.000001 -l_y 0.000001 -u_x 1.0 -u_y 1.0
+python gen_config.py -rp "$PWD" -type free -dynamics linear -ndof 2 -noise 0.30 -n_iter 500 -l_x 0.000001 -l_y 0.000001 -u_x 1.0 -u_y 1.0
 python simulation.py --root-path "$PWD" --config-path "config/2springmass_linear_free_free.ini"
 
 # train and test RNN encoder

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate configuration and data
-python gen_config.py -rp "$PWD" -type free -dynamics duffing -ndof 2 -noise 0.20 -n_iter 500 -l_x -2.0 -l_y -2.0 -u_x 2.0 -u_y 2.0
+python gen_config.py -rp "$PWD" -type free -dynamics duffing -ndof 2 -noise 0.30 -n_iter 500 -l_x -2.0 -l_y -2.0 -u_x 2.0 -u_y 2.0
 python simulation.py --root-path "$PWD" --config-path "config/2springmass_duffing_free_free.ini"
 
 # train and test RNN encoder
