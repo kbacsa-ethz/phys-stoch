@@ -7,17 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 import pyro
-from pyro.infer import (
-    SVI,
-    JitTrace_ELBO,
-    Trace_ELBO,
-    TraceEnum_ELBO,
-    config_enumerate,
-)
-from pyro.optim import ClippedAdam
 
 # visualization
-from phys_data import TrajectoryDataset
 from models import *
 from dmm import DMM
 from utils import data_path_from_config
@@ -46,18 +37,10 @@ def test(cfg):
     exp_name = data_path_from_config(config)
     obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
-    states = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'state.npy'))
-    observations = np.load(os.path.join(cfg.root_path, cfg.data_dir, exp_name, 'obs.npy'))
-    forces = np.load(os.path.join(cfg.data_dir, exp_name, 'force.npy'))
-    energy = np.load(os.path.join(cfg.data_dir, exp_name, 'energy.npy'))
-
-    # normalize
-    obs_mean = observations.mean(axis=(0, 1), keepdims=True)
-    obs_std = observations.std(axis=(0, 1), keepdims=True)
-    states_mean = states.mean(axis=(0, 1), keepdims=True)
-    states_std = states.std(axis=(0, 1), keepdims=True)
-    observations_normalize = (observations - obs_mean) / obs_std
-    states_normalize = (states - states_mean) / states_std
+    states_mean = np.array([[[-0.00018105, - 0.00066574,  0.00030546,  0.00049744,  0.00026192, 0.00142136]]])
+    states_std = np.array([[[0.92813288, 0.92993491, 1.90475785, 2.15138085, 5.02098828, 5.97846263]]])
+    obs_mean = np.array([[[-0.00066353, - 0.0009563,   0.00039857,  0.00119788]]])
+    obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
 
     # Save normalization parameters
     print("states_mean: {}".format(states_mean))
@@ -65,20 +48,9 @@ def test(cfg):
     print("obs_mean: {}".format(obs_mean))
     print("obs_std: {}".format(obs_std))
 
-    n_exp = states.shape[0]
-    # 80/10/10 split by default
-    indexes = np.arange(n_exp)
-    train_idx = indexes[:int(0.8 * len(indexes))]
-    val_idx = indexes[int(0.8 * len(indexes)):int(0.9 * len(indexes))]
-    test_idx = indexes[int(0.9 * len(indexes)):]
-
-    test_dataset = TrajectoryDataset(states[test_idx], observations[test_idx],
-                                     forces[test_idx], obs_idx, states.shape[1])
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
-
     # modules
     input_dim = len(obs_idx)
-    z_dim = int(states.shape[-1] * 2 / 3)
+    z_dim = int(states_mean.shape[-1] * 2 / 3)
     emitter = Emitter(input_dim, z_dim, cfg.emission_dim, cfg.emission_layers)
     transition = GatedTransition(z_dim, cfg.transmission_dim)
     if cfg.encoder_type == "birnn":
@@ -115,23 +87,10 @@ def test(cfg):
               (cfg.encoder_layers, cfg.batch_size, z_dim))
     vae.load_state_dict(checkpoint['model_state_dict'])
     vae.to(device)
-
-    # setup optimizer
-    adam_params = {"lr": cfg.learning_rate,
-                   "betas": (cfg.beta1, cfg.beta2),
-                   "clip_norm": cfg.clip_norm, "lrd": cfg.lr_decay,
-                   "weight_decay": cfg.weight_decay}
-    adam = ClippedAdam(adam_params)
-    elbo = Trace_ELBO()
-    svi = SVI(vae.model, vae.guide, adam, loss=elbo)
-
     vae.eval()
 
-    # TODO replace with itinialize simulation
     # parse system parameters
-
     print(cfg)
-
     system_type = config['System']['Name']
     flow_type = config['System']['Dynamics']
     m = np.diag(np.array(list(map(float, config['System']['M'].split(',')))))
