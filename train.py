@@ -384,30 +384,29 @@ def train(cfg):
                 )
                 experiment.log_figure(figure=fig, figure_name="a_mat_{:02d}".format(epoch))
 
+                mse = torch.zeros(len(test_dataset))
+                error = torch.zeros(len(test_dataset))
+                print("Testing on {} samples".format(len(test_dataset)))
+                for idx, sample in tqdm(enumerate(test_loader)):
+                    n_len = cfg.seq_len * 10
+                    sample_obs = sample['obs'][:, : n_len + 1, :].float()
+                    sample_obs = sample_obs.to(device)
+                    Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
+                    Obs = Obs.detach() * obs_std + obs_mean
+                    Obs_scale = Obs_scale.detach() * obs_std + obs_mean
+                    ground_truth = sample['state'][:, : n_len, obs_idx].float()
+                    ground_truth = ground_truth.to(device)
+                    mse[idx] = torch.abs(
+                        (Obs - ground_truth) / ground_truth + 1e-6).mean().item()  # add 1e-6 to avoid inf value
+                    error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2 * Obs_scale)),
+                                                  torch.gt(ground_truth, (Obs + 2 * Obs_scale))).float().mean()
+
+                print("Mean MSE is {}".format(mse.mean().item()))
+                print("Mean error is {:.2%}".format(error.mean().item()))
+                experiment.log_metric("test_mse", mse.mean().item(), step=global_step)
+                experiment.log_metric("outlier_error", error.mean().item(), step=global_step)
+
                 vae.train()
-
-    vae.eval()
-
-    mse = torch.zeros(len(test_dataset))
-    error = torch.zeros(len(test_dataset))
-    print("Testing on {} samples".format(len(test_dataset)))
-    for idx, sample in tqdm(enumerate(test_loader)):
-        n_len = cfg.seq_len * 10
-        sample_obs = sample['obs'][:, : n_len + 1, :].float()
-        sample_obs = sample_obs.to(device)
-        Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
-        Obs = Obs.detach() * obs_std + obs_mean
-        Obs_scale = Obs_scale.detach() * obs_std + obs_mean
-        ground_truth = sample['state'][:, : n_len, obs_idx].float()
-        ground_truth = ground_truth.to(device)
-        mse[idx] = torch.abs((Obs - ground_truth) / ground_truth + 1e-6).mean().item() # add 1e-6 to avoid inf value
-        error[idx] = torch.logical_or(torch.lt(ground_truth, (Obs - 2*Obs_scale)), torch.gt(ground_truth, (Obs + 2*Obs_scale))).float().mean()
-
-    print("Mean MSE is {}".format(mse.mean().item()))
-    print("Mean error is {:.2%}".format(error.mean().item()))
-    experiment.log_metric("test_mse", mse.mean().item(), step=global_step)
-    experiment.log_metric("outlier_error", error.mean().item(), step=global_step)
-
     return abs_loss
 
 
