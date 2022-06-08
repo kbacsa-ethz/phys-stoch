@@ -44,6 +44,37 @@ def duffing(w, t, p):
     return f
 
 
+def halfcar(w, t, p):
+    m, c, c2, k, k2, k3, ext = p
+
+    n_dof = m.shape[0]
+    A = np.concatenate(
+        [
+            np.concatenate([np.zeros([n_dof, n_dof]), np.eye(n_dof)], axis=1),  # link velocities
+            np.concatenate([-np.linalg.solve(m, k), -np.linalg.solve(m, c)], axis=1),  # movement equations
+        ], axis=0)
+
+    B = np.concatenate(
+        [
+            np.concatenate([np.zeros([n_dof, n_dof]), np.zeros([n_dof, n_dof])], axis=1),
+            np.concatenate([-np.linalg.solve(m, k2), -np.linalg.solve(m, c2)], axis=1),  # quadratic term
+        ], axis=0)
+
+    C = np.concatenate(
+        [
+            np.concatenate([np.zeros([n_dof, n_dof]), np.zeros([n_dof, n_dof])], axis=1),
+            np.concatenate([-np.linalg.solve(m, k3), np.zeros([n_dof, n_dof])], axis=1),  # cubic term
+        ], axis=0)
+
+    quadratic = w ** 2
+    quadratic = B @ quadratic
+    cubic = w ** 3
+    cubic = C @ cubic
+    force = np.concatenate([np.zeros(n_dof), np.linalg.solve(m, ext(t))])
+    f = A @ w + quadratic + cubic + force
+    return f
+
+
 def pendulum(n, lengths=None, masses=1):
     """Integrate a multi-pendulum with `n` sections"""
 

@@ -24,6 +24,11 @@ def main(ag, cfg):
     c = np.reshape(np.array(list(map(float, cfg['System']['C'].split(',')))), [n_dof, n_dof])
     k = np.reshape(np.array(list(map(float, cfg['System']['K'].split(',')))), [n_dof, n_dof])
 
+    if flow_type == 'halfcar':
+        c2 = np.reshape(np.array(list(map(float, cfg['System']['C2'].split(',')))), [n_dof, n_dof])
+        k2 = np.reshape(np.array(list(map(float, cfg['System']['K2'].split(',')))), [n_dof, n_dof])
+        k3 = np.reshape(np.array(list(map(float, cfg['System']['K3'].split(',')))), [n_dof, n_dof])
+
     # parse external forces
     # TODO Add additional types of forces
     force_type = cfg['Forces']['Type']
@@ -58,9 +63,11 @@ def main(ag, cfg):
     if force_type == 'free':
         force_fct = lambda x: 0
     elif force_type == 'impulse':
-        force_fct = lambda x: signal.unit_impulse(len(tics), [x, x+1, x+3])
+        force_fct = lambda x: signal.unit_impulse(len(tics), [x, x + 1, x + 3])
     elif force_type == 'sinusoidal':
         force_fct = np.sin
+    elif force_type == 'sineroad' or force_type == 'traproad':
+        pass
     else:
         raise NotImplementedError()
 
@@ -75,6 +82,8 @@ def main(ag, cfg):
         vectorfield = linear
     elif flow_type == 'duffing':
         vectorfield = duffing
+    elif flow_type == 'halfcar':
+        vectorfield = halfcar
     elif flow_type == 'pendulum':
         vectorfield, p = pendulum(n_dof)
     else:
@@ -85,23 +94,48 @@ def main(ag, cfg):
         # initialize state
         q0 = (x_max - x_min) * np.random.random([n_dof, 1]).squeeze() + x_min
         qdot0 = (y_max - y_min) * np.random.random([n_dof, 1]).squeeze() + y_min
+
         w0 = np.concatenate([q0, qdot0], axis=0)
 
         # generate external forces
         force_input = np.zeros([n_dof, len(tics)])
+
+        exp_amp = force_amp * (0.25 + np.random.random())
+        exp_freq = force_freq * (0.25 + np.random.random())
         for dof in force_dof:
+            if dof == 0:
+                shift = 0
+            else:
+                shift = force_shift
             if force_type == "impulse":
                 impulse_shift = np.random.randint(0, len(tics) // 2)
                 force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
-            if force_type == "sinusoidal":
-                force_input[dof, :] = (force_amp * np.random.random()) * force_fct(2*np.pi*(force_freq*np.random.random())*tics*dt)
+            elif force_type == "sinusoidal":
+                force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
+                    2 * np.pi * (force_freq * np.random.random()) * tics * dt)
+            elif force_type == "sineroad":
+                force_input[dof, :] = exp_amp / 2 + (4 * force_amp / (np.pi ** 2)) * \
+                                      (
+                                              np.cos(2 * np.pi * exp_freq * tics * dt - shift) +
+                                              1 / 9 * np.cos(3 * 2 * np.pi * exp_freq * tics * dt - shift) +
+                                              1 / 25 * np.cos(5 * 2 * np.pi * exp_freq * tics * dt - shift)
+                                      )
+            elif force_type == 'traproad':
+                fourier_expansion = np.zeros(len(tics))
+                fourier_expansion += 2 * exp_amp / 3
+                for i in range(1, 3):
+                    fourier_expansion += (3 * force_amp / (np.pi**2)) * ((-1)**i * np.cos(i*np.pi/3) - 1) *\
+                                         np.cos(i * 2 * np.pi * exp_freq * tics * dt - shift)
+                force_input[dof, :] = fourier_expansion
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
         if flow_type == 'linear':
             p = [m, c, k, fint]
-        if flow_type == 'duffing':
-            p = [m, c, k, k/3, fint]
+        elif flow_type == 'duffing':
+            p = [m, c, k, k / 3, fint]
+        elif flow_type == 'halfcar':
+            p = [m, c, c2, k, k2, k3, fint]
         else:
             pass
 
@@ -119,13 +153,27 @@ def main(ag, cfg):
 
         # calcuate energy of system
         q = state[:, :n_dof, None]
-        qdot = state[:, n_dof:2*n_dof, None]
+        qdot = state[:, n_dof:2 * n_dof, None]
         kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
         potential = 0.5 * np.matmul(np.transpose(q, axes=[0, 2, 1]), np.matmul(k, q))
 
         obs = np.zeros([state.shape[0], len(obs_idx)])
         for i, idx in enumerate(obs_idx):
             obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
+
+        """
+        import matplotlib.pyplot as plt
+        print(state.shape)
+        plt.plot(obs[:1500, 0], label='front suspension')
+        plt.plot(obs[:1500, 1], label='axel')
+        plt.plot(obs[:1500, 2], label='rotation')
+        plt.plot(obs[:1500, 3], label='back suspension')
+        plt.plot(obs[:1500, 4], label='front seat')
+        plt.plot(obs[:1500, 5], label='back seat')
+        #plt.plot(force_input[0, :1500], label='input force')
+        plt.legend()
+        plt.show()
+        """
 
         state_tensor[iter_idx] = state
         obs_tensor[iter_idx] = obs
@@ -135,9 +183,11 @@ def main(ag, cfg):
         energy_tensor[iter_idx, :, 4] = kinetic.flatten() + potential.flatten()
 
     np.save(os.path.join(save_path, 'state.npy'), state_tensor, allow_pickle=True)
-    np.save(os.path.join(save_path, 'state_param.npy'), np.concatenate([state_tensor.mean(axis=(0, 1)), state_tensor.std(axis=(0, 1))]))
+    np.save(os.path.join(save_path, 'state_param.npy'),
+            np.concatenate([state_tensor.mean(axis=(0, 1)), state_tensor.std(axis=(0, 1))]))
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
-    np.save(os.path.join(save_path, 'obs_param.npy'), np.concatenate([obs_tensor.mean(axis=(0, 1)), obs_tensor.std(axis=(0, 1))]))
+    np.save(os.path.join(save_path, 'obs_param.npy'),
+            np.concatenate([obs_tensor.mean(axis=(0, 1)), obs_tensor.std(axis=(0, 1))]))
     np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
@@ -148,7 +198,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

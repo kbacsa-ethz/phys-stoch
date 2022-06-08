@@ -135,9 +135,9 @@ def train(cfg):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # free memory to avoid crash
-    # states = None
-    # observations = None
-    # forces = None
+    #states = None
+    #observations = None
+    #forces = None
     states_windowed = None
     observations_windowed = None
     forces_windowed = None
@@ -254,7 +254,7 @@ def train(cfg):
                 sample = np.expand_dims(observations_normalize[n_re], axis=0)
                 sample = torch.from_numpy(sample[:, : n_len + 1, :]).float()
                 sample = sample.to(device)
-                Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample)
+                Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample, 1)
 
                 # fig = plot_emd(Z[0].detach().numpy(), debug=cfg.debug)
                 # experiment.log_figure(figure=fig, figure_name="HHT_{:02d}".format(epoch))
@@ -415,7 +415,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-ord', '--integrator-order', type=int, default=2)
     parser.add_argument('--dissipative', action='store_true')
-    parser.add_argument('-dt', '--dt', type=float, default=0.1)
+    parser.add_argument('-dt', '--dt', type=float, default=0.01)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=1)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)

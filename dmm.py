@@ -143,12 +143,12 @@ class DMM(nn.Module):
                 z_prev = z_t
 
     # define a helper function for reconstructing images
-    def reconstruction(self, x):
+    def reconstruction(self, x, k):
         # infer all x_t from ODE-RNN
         T_max = x.size(1)
 
         encoder_output = self.encoder(x, T_max)
-        z_prev = self.z_q_0.data
+        z_prev = self.z_q_0.data.unsqueeze(0)
         # step by step trans in the other direction
 
         Z = torch.zeros([1, T_max-1, self.trans.z_dim])
@@ -158,10 +158,13 @@ class DMM(nn.Module):
         Obs_scale = torch.zeros([1, T_max-1, self.emitter.input_dim])
 
         for t in range(1, T_max):
-            z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
+            if t % k:
+                z_loc = z_prev
+            else:
+                z_loc, z_scale = self.combiner(z_prev, encoder_output[:, t - 1, :])
             z_gen_loc, z_gen_scale = self.trans(z_loc)
             obs_loc, obs_scale = self.emitter(z_gen_loc)
-            z_prev = z_loc
+            z_prev = z_gen_loc
             Z[:, t - 1] = z_loc[0, :]
             Z_gen[:, t - 1] = z_gen_loc[0, :]
             Obs[:, t - 1] = obs_loc[0, :]
