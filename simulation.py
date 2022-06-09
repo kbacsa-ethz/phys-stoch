@@ -1,6 +1,7 @@
 import argparse
 import configparser
 import os
+import random
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -53,6 +54,7 @@ def main(ag, cfg):
 
     # fix random seed for reproducibility
     np.random.seed(seed)
+    random.seed(seed)
 
     experiment_tree = data_path_from_config(cfg)
     save_path = os.path.join(ag.root_path, 'data', system_type)
@@ -66,7 +68,7 @@ def main(ag, cfg):
         force_fct = lambda x: signal.unit_impulse(len(tics), [x, x + 1, x + 3])
     elif force_type == 'sinusoidal':
         force_fct = np.sin
-    elif force_type == 'sineroad' or force_type == 'traproad':
+    elif force_type == 'road':
         pass
     else:
         raise NotImplementedError()
@@ -113,20 +115,22 @@ def main(ag, cfg):
             elif force_type == "sinusoidal":
                 force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
                     2 * np.pi * (force_freq * np.random.random()) * tics * dt)
-            elif force_type == "sineroad":
-                force_input[dof, :] = exp_amp / 2 + (4 * force_amp / (np.pi ** 2)) * \
-                                      (
-                                              np.cos(2 * np.pi * exp_freq * tics * dt - shift) +
-                                              1 / 9 * np.cos(3 * 2 * np.pi * exp_freq * tics * dt - shift) +
-                                              1 / 25 * np.cos(5 * 2 * np.pi * exp_freq * tics * dt - shift)
-                                      )
-            elif force_type == 'traproad':
-                fourier_expansion = np.zeros(len(tics))
-                fourier_expansion += 2 * exp_amp / 3
-                for i in range(1, 3):
-                    fourier_expansion += (3 * force_amp / (np.pi**2)) * ((-1)**i * np.cos(i*np.pi/3) - 1) *\
-                                         np.cos(i * 2 * np.pi * exp_freq * tics * dt - shift)
-                force_input[dof, :] = fourier_expansion
+            elif force_type == 'road':
+                case = random.random() > 0.5
+                if case:
+                    force_input[dof, :] = exp_amp / 2 + (4 * force_amp / (np.pi ** 2)) * \
+                                          (
+                                                  np.cos(2 * np.pi * exp_freq * tics * dt - shift) +
+                                                  1 / 9 * np.cos(3 * 2 * np.pi * exp_freq * tics * dt - shift) +
+                                                  1 / 25 * np.cos(5 * 2 * np.pi * exp_freq * tics * dt - shift)
+                                          )
+                else:
+                    fourier_expansion = np.zeros(len(tics))
+                    fourier_expansion += 2 * exp_amp / 3
+                    for i in range(1, 3):
+                        fourier_expansion += (3 * force_amp / (np.pi**2)) * ((-1)**i * np.cos(i*np.pi/3) - 1) *\
+                                             np.cos(i * 2 * np.pi * exp_freq * tics * dt - shift)
+                    force_input[dof, :] = fourier_expansion
 
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
@@ -160,6 +164,7 @@ def main(ag, cfg):
         obs = np.zeros([state.shape[0], len(obs_idx)])
         for i, idx in enumerate(obs_idx):
             obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
+
 
         """
         import matplotlib.pyplot as plt
