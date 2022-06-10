@@ -31,7 +31,6 @@ def main(ag, cfg):
         k3 = np.reshape(np.array(list(map(float, cfg['System']['K3'].split(',')))), [n_dof, n_dof])
 
     # parse external forces
-    # TODO Add additional types of forces
     force_type = cfg['Forces']['Type']
     force_amp = float(cfg['Forces']['Amplitude'])
     force_freq = float(cfg['Forces']['Frequency'])
@@ -68,7 +67,7 @@ def main(ag, cfg):
         force_fct = lambda x: signal.unit_impulse(len(tics), [x, x + 1, x + 3])
     elif force_type == 'sinusoidal':
         force_fct = np.sin
-    elif force_type == 'road':
+    elif force_type == 'road' or force_type == 'sineroad' or force_type == 'traproad':
         pass
     else:
         raise NotImplementedError()
@@ -86,6 +85,8 @@ def main(ag, cfg):
         vectorfield = duffing
     elif flow_type == 'halfcar':
         vectorfield = halfcar
+        # upsample for halfcar dynamics
+        tics = np.linspace(0., t_max, num=int(t_max / dt * 100), endpoint=False)
     elif flow_type == 'pendulum':
         vectorfield, p = pendulum(n_dof)
     else:
@@ -115,23 +116,23 @@ def main(ag, cfg):
             elif force_type == "sinusoidal":
                 force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
                     2 * np.pi * (force_freq * np.random.random()) * tics * dt)
+            elif force_type == 'sineroad':
+                force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + exp_amp / 2
+            elif force_type == 'traproad':
+                amp2 = exp_amp * 1.5
+                trap_force = amp2 / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + amp2 / 2
+                trap_force[trap_force > exp_amp] = exp_amp
+                force_input[dof, :] = trap_force
             elif force_type == 'road':
                 case = random.random() > 0.5
                 if case:
-                    force_input[dof, :] = exp_amp / 2 + (4 * force_amp / (np.pi ** 2)) * \
-                                          (
-                                                  np.cos(2 * np.pi * exp_freq * tics * dt - shift) +
-                                                  1 / 9 * np.cos(3 * 2 * np.pi * exp_freq * tics * dt - shift) +
-                                                  1 / 25 * np.cos(5 * 2 * np.pi * exp_freq * tics * dt - shift)
-                                          )
+                    force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift,
+                                                                        width=0.5) + exp_amp / 2
                 else:
-                    fourier_expansion = np.zeros(len(tics))
-                    fourier_expansion += 2 * exp_amp / 3
-                    for i in range(1, 3):
-                        fourier_expansion += (3 * force_amp / (np.pi**2)) * ((-1)**i * np.cos(i*np.pi/3) - 1) *\
-                                             np.cos(i * 2 * np.pi * exp_freq * tics * dt - shift)
-                    force_input[dof, :] = fourier_expansion
-
+                    amp2 = exp_amp * 1.5
+                    trap_force = amp2 / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + amp2 / 2
+                    trap_force[trap_force > exp_amp] = exp_amp
+                    force_input[dof, :] = trap_force
         fint = interp1d(tics, force_input, fill_value='extrapolate')
 
         if flow_type == 'linear':
@@ -155,6 +156,11 @@ def main(ag, cfg):
         # join states and measure
         state = np.concatenate([wsol, wsol_dot[:, n_dof:]], axis=1)
 
+        # subsample state
+        if flow_type == 'halfcar':
+            state = signal.decimate(state, 10, axis=0)
+            state = signal.decimate(state, 10, axis=0)
+
         # calcuate energy of system
         q = state[:, :n_dof, None]
         qdot = state[:, n_dof:2 * n_dof, None]
@@ -168,21 +174,19 @@ def main(ag, cfg):
 
         """
         import matplotlib.pyplot as plt
-        print(state.shape)
-        plt.plot(obs[:1500, 0], label='front suspension')
-        plt.plot(obs[:1500, 1], label='axel')
-        plt.plot(obs[:1500, 2], label='rotation')
-        plt.plot(obs[:1500, 3], label='back suspension')
-        plt.plot(obs[:1500, 4], label='front seat')
-        plt.plot(obs[:1500, 5], label='back seat')
-        #plt.plot(force_input[0, :1500], label='input force')
+        plt.plot(obs[:, 0], label='front suspension')
+        plt.plot(obs[:, 1], label='axel')
+        plt.plot(obs[:, 2], label='rotation')
+        plt.plot(obs[:, 3], label='back suspension')
+        plt.plot(obs[:, 4], label='front seat')
+        plt.plot(obs[:, 5], label='back seat')
+        #plt.plot(force_input[0, :300], label='input force')
         plt.legend()
         plt.show()
         """
 
         state_tensor[iter_idx] = state
         obs_tensor[iter_idx] = obs
-        force_tensor[iter_idx] = force_input.T
         energy_tensor[iter_idx, :, 0] = kinetic.flatten()
         energy_tensor[iter_idx, :, 1] = potential.flatten()
         energy_tensor[iter_idx, :, 4] = kinetic.flatten() + potential.flatten()
@@ -193,7 +197,7 @@ def main(ag, cfg):
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'obs_param.npy'),
             np.concatenate([obs_tensor.mean(axis=(0, 1)), obs_tensor.std(axis=(0, 1))]))
-    np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
+    #np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
     return 0
