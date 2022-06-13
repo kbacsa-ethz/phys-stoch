@@ -1,6 +1,9 @@
 import os
 import argparse
 import configparser
+import random
+
+import numpy as np
 from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -43,17 +46,41 @@ def test(cfg):
     k = np.reshape(np.array(list(map(float, config['System']['K'].split(',')))), [n_dof, n_dof])
     flow_type = config['System']['Dynamics']
 
+    if flow_type == 'halfcar':
+        c2 = np.reshape(np.array(list(map(float, config['System']['C2'].split(',')))), [n_dof, n_dof])
+        k2 = np.reshape(np.array(list(map(float, config['System']['K2'].split(',')))), [n_dof, n_dof])
+        k3 = np.reshape(np.array(list(map(float, config['System']['K3'].split(',')))), [n_dof, n_dof])
+
+    if not c.astype(np.int).any():
+        dissipative = False
+    else:
+        dissipative = False
+
     if flow_type == 'duffing':
-        states_mean = np.array([[[-0.00018105, - 0.00066574,  0.00030546,  0.00049744,  0.00026192, 0.00142136]]])
-        states_std = np.array([[[0.92813288, 0.92993491, 1.90475785, 2.15138085, 5.02098828, 5.97846263]]])
-        obs_mean = np.array([[[-0.00066353, - 0.0009563,   0.00039857,  0.00119788]]])
-        obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
+        if not dissipative:
+            states_mean = np.array([[[-0.00018105, - 0.00066574, 0.00030546, 0.00049744, 0.00026192, 0.00142136]]])
+            states_std = np.array([[[0.92813288, 0.92993491, 1.90475785, 2.15138085, 5.02098828, 5.97846263]]])
+            obs_mean = np.array([[[-0.00066353, - 0.0009563, 0.00039857, 0.00119788]]])
+            obs_std = np.array([[[0.94974715, 0.95087484, 5.02525429, 5.98210665]]])
+        else:
+            states_mean = np.array([[[1.56436474e-02, 9.03638189e-03, 6.61162317e-05, - 8.22759220e-06,
+                                      3.11385880e-04, 3.48087424e-04]]])
+            states_std = np.array([[[0.34497259, 0.29157891, 0.33275987, 0.32870161, 0.38388944, 0.43193062]]])
+            obs_mean = np.array([[[0.01561499, 0.00909796, 0.00018081, - 0.00020756]]])
+            obs_std: np.array([[[0.37581299, 0.32815157, 0.41253529, 0.45759588]]])
     elif flow_type == 'linear':
         if n_dof == 2:
-            states_mean = np.array([[[0.00018988, - 0.00016362,  0.00051457,  0.00066631, - 0.00081405, 0.00091053]]])
-            states_std = np.array([[[1.022071, 0.99691651, 1.57848652, 1.74890221, 3.08154555, 3.63055205]]])
-            obs_mean = np.array([[[-0.0002926, - 0.00045418, - 0.0006774,   0.00068704]]])
-            obs_std = np.array([[[1.04057759, 1.017169, 3.08788495, 3.63614872]]])
+            if not dissipative:
+                states_mean = np.array([[[0.00018988, - 0.00016362, 0.00051457, 0.00066631, - 0.00081405, 0.00091053]]])
+                states_std = np.array([[[1.022071, 0.99691651, 1.57848652, 1.74890221, 3.08154555, 3.63055205]]])
+                obs_mean = np.array([[[-0.0002926, - 0.00045418, - 0.0006774, 0.00068704]]])
+                obs_std = np.array([[[1.04057759, 1.017169, 3.08788495, 3.63614872]]])
+            else:
+                states_mean = np.array([[[-0.00052196, - 0.00056236, 0.00019102, 0.00066107, 0.00031078,
+                                          0.00087969]]])
+                states_std = np.array([[[0.58341699, 0.55143364, 0.83937896, 0.90896708, 1.56943701, 1.83393094]]])
+                obs_mean = np.array([[[-0.00100444, - 0.00085291, 0.00044744, 0.0006562]]])
+                obs_std = np.array([[[0.6161545, 0.58673665, 1.5817723, 1.84504716]]])
         elif n_dof == 3:
             states_mean = np.array([[[-0.00025549, - 0.00107307, 0.00053756, 0.0011178, 0.00202821,
                                       - 0.00032468, - 0.00136179, 0.00390493, - 0.0029966]]])
@@ -68,7 +95,12 @@ def test(cfg):
         states_mean = np.array([[[0.00471831, - 0.02527156, - 0.01187413, - 0.01469576, - 0.00447611, -0.00421897]]])
         states_std = np.array([[[0.51161866, 1.60491627, 0.51462374, 0.77564956, 0.80426609, 1.07328515]]])
         obs_mean = np.array([[[0.00423583, - 0.02556212, - 0.00433946, - 0.00444246]]])
-        obs_std = np.array([[[0.54962711, 1.61728878, 0.8287365,  1.092226]]])
+        obs_std = np.array([[[0.54962711, 1.61728878, 0.8287365, 1.092226]]])
+    elif flow_type == 'halfcar':
+        states_mean = np.array([[[2.66742884e-05, 4.12188849e-06, 8.48791363e-06, 4.46407927e-05, 3.91812118e-08,  1.52664378e-05,  1.74248499e-06,  2.49230201e-07, 5.69658092e-07,  2.94051840e-06, -2.83939071e-08,  1.00397105e-06, -7.83412397e-06, -3.24704588e-08, -3.46329086e-09, -3.97769347e-06, 6.30950211e-09,  9.55391964e-09]]])
+        states_std = np.array([[[1.14466990e-05, 3.64940699e-06, 5.12756408e-06, 1.90134105e-05, 5.31888191e-06, 8.21500996e-06, 6.85094197e-05, 2.00296768e-05, 5.51140046e-06, 1.08724603e-04, 3.23442269e-05, 3.39486205e-05, 2.59737380e-03, 1.54972034e-04, 3.77374902e-05, 2.99998573e-03, 3.00579457e-04, 3.08769734e-04]]])
+        obs_mean = np.array([[[2.66759285e-05,  4.12263867e-06,  8.48792633e-06,  4.46417331e-05, 3.70573114e-08,  1.52656656e-05, -2.98363551e-08,  1.00541955e-06, -7.83459344e-06, -3.24212181e-08, -1.75133315e-09, -3.97885407e-06]]])
+        obs_std = np.array([[[1.16214655e-05, 3.78330277e-06, 5.15214985e-06, 1.91729831e-05, 5.67876607e-06, 8.45305397e-06, 3.24073905e-05, 3.40063876e-05, 2.59737459e-03, 1.54994468e-04, 3.77883175e-05, 2.99998840e-03]]])
     else:
         raise NotImplemented
 
@@ -78,7 +110,10 @@ def test(cfg):
     print("obs_mean: {}".format(obs_mean))
     print("obs_std: {}".format(obs_std))
 
-    checkpoint = torch.load("checkpoints/{}_{}.pth".format(flow_type, n_dof))
+    if not dissipative:
+        checkpoint = torch.load("checkpoints/{}_{}.pth".format(flow_type, n_dof))
+    else:
+        checkpoint = torch.load("checkpoints/{}_{}_dissipative_with.pth".format(flow_type, n_dof))
 
     # modules
     input_dim = len(obs_idx)
@@ -149,6 +184,8 @@ def test(cfg):
         force_fct = lambda x: signal.unit_impulse(len(tics), [x, x + 1, x + 3])
     elif force_type == 'sinusoidal':
         force_fct = np.sin
+    elif force_type == 'road' or force_type == 'sineroad' or force_type == 'traproad':
+        pass
     else:
         raise NotImplementedError()
 
@@ -156,33 +193,64 @@ def test(cfg):
         vectorfield = linear
     elif flow_type == 'duffing':
         vectorfield = duffing
+    elif flow_type == 'halfcar':
+        vectorfield = halfcar
+        # upsample for halfcar dynamics
+        tics = np.linspace(0., t_max, num=int(t_max / dt * 100), endpoint=False)
     elif flow_type == 'pendulum':
         vectorfield, p = pendulum(n_dof)
     else:
         raise NotImplementedError()
 
     # run simulation
-    q0_start = 1.0
-    qdot0_start = 0.7
+    q0_start = 1e-7
+    qdot0_start = 1e-7
     q0, qdot0 = q0_start * np.ones([n_dof, 1]).squeeze(), qdot0_start * np.ones([n_dof, 1]).squeeze()
+    # q0, qdot0 = q0_start * np.array([0.3745, 0.9507]), qdot0_start * np.array([0.7319, 0.5986])
     w0 = np.concatenate([q0, qdot0], axis=0)
 
     # generate external forces
     force_input = np.zeros([n_dof, len(tics)])
+    exp_amp = force_amp * (0.25 + np.random.random())
+    exp_freq = force_freq * (0.25 + np.random.random())
     for dof in force_dof:
+        if dof == 0:
+            shift = 0
+        else:
+            shift = force_shift
         if force_type == "impulse":
             impulse_shift = np.random.randint(0, len(tics) // 2)
             force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
-        if force_type == "sinusoidal":
+        elif force_type == "sinusoidal":
             force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
                 2 * np.pi * (force_freq * np.random.random()) * tics * dt)
+        elif force_type == 'sineroad':
+            force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift,
+                                                                width=0.5) + exp_amp / 2
+        elif force_type == 'traproad':
+            amp2 = exp_amp * 1.5
+            trap_force = amp2 / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + amp2 / 2
+            trap_force[trap_force > exp_amp] = exp_amp
+            force_input[dof, :] = trap_force
+        elif force_type == 'road':
+            case = random.random() > 0.5
+            if case:
+                force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift,
+                                                                    width=0.5) + exp_amp / 2
+            else:
+                amp2 = exp_amp * 1.5
+                trap_force = amp2 / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + amp2 / 2
+                trap_force[trap_force > exp_amp] = exp_amp
+                force_input[dof, :] = trap_force
 
     fint = interp1d(tics, force_input, fill_value='extrapolate')
 
     if flow_type == 'linear':
         p = [m, c, k, fint]
-    if flow_type == 'duffing':
+    elif flow_type == 'duffing':
         p = [m, c, k, k / 3, fint]
+    elif flow_type == 'halfcar':
+        p = [m, c, c2, k, k2, k3, fint]
     else:
         pass
 
@@ -198,15 +266,29 @@ def test(cfg):
     # join states and measure
     state = np.concatenate([wsol, wsol_dot[:, n_dof:]], axis=1)
 
+    # subsample state
+    if flow_type == 'halfcar':
+        state = signal.decimate(state, 10, axis=0)
+        state = signal.decimate(state, 10, axis=0)
+
     # calcuate energy of system
     q = state[:, :n_dof, None]
     qdot = state[:, n_dof:2 * n_dof, None]
-    kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
-    potential = 0.5 * np.matmul(np.transpose(q, axes=[0, 2, 1]), np.matmul(k, q))
+
+    if flow_type == "pendulum":
+        lenghts = [8, 8]
+        potential = -(m[0, 0] + m[1, 1]) * 9.8 * lenghts[0] * np.cos(q[:, 0]) - m[1, 1] * 9.8 * lenghts[1] * np.cos(
+            q[:, 1])
+        kinetic = 0.5 * m[0, 0] * (lenghts[0] * qdot[:, 0]) ** 2 + \
+                  0.5 * m[1, 1] * ((lenghts[0] * qdot[:, 0]) ** 2 + (lenghts[1] * qdot[:, 1]) ** 2
+                                   + 2 * lenghts[0] * lenghts[1] * qdot[:, 0] * qdot[:, 1] * np.cos(q[:, 0] - q[:, 1]))
+    else:
+        kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+        potential = 0.5 * np.matmul(np.transpose(q, axes=[0, 2, 1]), np.matmul(k, q))
 
     obs = np.zeros([state.shape[0], len(obs_idx)])
     for i, idx in enumerate(obs_idx):
-        obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
+        obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i] * 0.5
 
     n_len = cfg.seq_len * 10
 
@@ -215,14 +297,15 @@ def test(cfg):
     time = np.arange(0, n_len * dt, dt, dtype=float)
     obs = (obs - obs_mean) / obs_std
 
+    k = 1
     sample_obs = torch.from_numpy(obs[:, :n_len + 1, :]).float()
     sample_obs = sample_obs.to(device)
-    Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
+    Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs, k)
     Obs = Obs.detach() * obs_std + obs_mean
     Obs_scale = Obs_scale.detach() * obs_std + obs_mean
     ground_truth = torch.from_numpy(state[:n_len, obs_idx]).unsqueeze(0).float()
     ground_truth = ground_truth.to(device)
-    mse = torch.abs((Obs - ground_truth) / (ground_truth + 1e-6)).mean().item() # add 1e-6 to avoid inf
+    mse = torch.abs((Obs - ground_truth) / (ground_truth + 1e-6)).mean().item()  # add 1e-6 to avoid inf
     error = torch.logical_or(torch.lt(ground_truth, (Obs - 2 * Obs_scale)),
                              torch.gt(ground_truth, (Obs + 2 * Obs_scale))).float().mean().item()
     t_vec = torch.arange(1, n_len + 1) * dt
@@ -233,15 +316,23 @@ def test(cfg):
     qdot = qdot[..., None].squeeze(0).detach().numpy()
 
     if cfg.dissipative:
-        input_tensor = torch.cat([t_vec.float().unsqueeze(1), q], dim=1)
+        input_tensor = torch.cat([t_vec.float().unsqueeze(1), q.squeeze()], dim=1).unsqueeze(0)
     else:
         # input_tensor = torch.cat([torch.from_numpy(q).float(), torch.from_numpy(qd).float()], dim=1)
         input_tensor = q
 
     latent_potential = vae.encoder.latent_func.energy(t_vec, input_tensor).detach().numpy()
 
+    q = q[..., None].squeeze(0).detach().numpy()
     m = np.eye(z_dim // 2)
-    latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+
+    if flow_type == "pendulum":
+        latent_kinetic = 0.5 * m[0, 0] * (lenghts[0] * qdot[:, 0]) ** 2 + \
+                  0.5 * m[1, 1] * ((lenghts[0] * qdot[:, 0]) ** 2 + (lenghts[1] * qdot[:, 1]) ** 2
+                                   + 2 * lenghts[0] * lenghts[1] * qdot[:, 0] * qdot[:, 1] * np.cos(q[:, 0] - q[:, 1]))
+    else:
+        latent_kinetic = 0.5 * np.matmul(np.transpose(qdot, axes=[0, 2, 1]), np.matmul(m, qdot))
+
     latent_kinetic = latent_kinetic.flatten()
 
     print(mse)
@@ -254,8 +345,8 @@ def test(cfg):
 
     latent_kinetic = (latent_kinetic - latent_kinetic.min()) / (latent_kinetic.max() - latent_kinetic.min())
     latent_potential = (latent_potential - latent_potential.min()) / (latent_potential.max() - latent_potential.min())
-    kinetic = kinetic[5:n_len]
-    potential = potential[5:n_len]
+    kinetic = kinetic[:n_len]
+    potential = potential[:n_len]
 
     kinetic = (kinetic - kinetic.min()) / (kinetic.max() - kinetic.min())
     potential = (potential - potential.min()) / (potential.max() - potential.min())
@@ -264,7 +355,15 @@ def test(cfg):
     gs = gridspec.GridSpec(n_obs // 2, n_obs // 2)
     gs.update(wspace=0.2, hspace=0.25)  # spacing between subplots
 
-    list_of_names = [r'$x_{}$'.format(i) for i in range(n_dof)] + [r'$\ddot{{x}}_{}$'.format(i) for i in range(n_dof)]
+    list_of_names = [r'$\theta_{}$'.format(i + 1) for i in range(n_dof)] + [r'$\ddot{{\theta}}_{}$'.format(i + 1) for i
+                                                                            in range(n_dof)]
+
+    # save Obs, state, sample_obs, obs_std, obs_mean, Obs_scale
+    np.save('intermediate/Obs.npy', Obs.detach().numpy())
+    np.save('intermediate/state.npy', state)
+    np.save('intermediate/sample_obs.npy', sample_obs.detach().numpy() * obs_std + obs_mean)
+    np.save('intermediate/Obs_scale.npy', Obs_scale.detach().numpy())
+
     for i in range(n_obs):
         y1 = Obs[:, :, i].squeeze().detach().numpy()
         y2 = state[:n_len, obs_idx[i]]
@@ -304,7 +403,10 @@ def test(cfg):
         plt.ylabel(list_of_names[i], fontsize=14)  # label the y axis
 
         plt.legend(loc='upper right')  # add the legend (will default to 'best' location)
-    # plt.show()
+
+    plt.suptitle("k+{}-predictions".format(k))
+    plt.show()
+
 
     # plot phase
     fig = plt.figure(2, figsize=(20, 10))
@@ -313,8 +415,8 @@ def test(cfg):
     # normalize and remove starting points
     latent = Z[:, 5:n_len, :].squeeze().detach().numpy()
     ground = state[5:n_len, :]
-    latent = (latent - latent.min()) / (latent.max() - latent.min())
-    ground = (ground - ground.min()) / (ground.max() - ground.min())
+    latent = (latent - latent.min()) / (latent.max() - latent.min() + 1e-6)
+    ground = (ground - ground.min()) / (ground.max() - ground.min() + 1e-6)
 
     # regular phase
     for i in range(z_dim // 2):
@@ -328,8 +430,8 @@ def test(cfg):
         T, _, _, _ = np.linalg.lstsq(latent_mat, ground_mat, rcond=None)
         latent_rot = latent_mat @ T
 
-        plt.xlabel(r'$x_1$', fontsize=14)
-        plt.ylabel(r'$\dot{x}_1$', fontsize=14)
+        plt.xlabel(r'$\theta_1$', fontsize=14)
+        plt.ylabel(r'$\dot{\theta}_1$', fontsize=14)
         plt.plot(x_g, y_g, color=colors[0], linestyle='dashed', linewidth=0.5, label='original')
         plt.scatter(latent_rot[0, :], latent_rot[1, :], color=colors[-1], label='predicted (rotated)')
         plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
@@ -354,12 +456,20 @@ def test(cfg):
     """
 
     fig = plt.figure(3)
-    plt.plot(time[5:], latent_kinetic.squeeze(), color=colors[0], label='learned kinetic')
-    plt.plot(time[5:], latent_potential.squeeze(), color=colors[1], label='learned potential')
-    plt.plot(time[5:], kinetic.squeeze(), color=colors[2], label='true kinetic')
-    plt.plot(time[5:], potential.squeeze(), color=colors[3], label='true potential')
+    max_iter = 100
+    plt.plot(time[:max_iter], latent_kinetic.squeeze()[:max_iter], color=colors[0], label='learned kinetic')
+    plt.plot(time[:max_iter], latent_potential.squeeze()[:max_iter], color=colors[1], label='learned potential')
+    plt.plot(time[:max_iter], kinetic.squeeze()[:max_iter], color=colors[-1], label='true kinetic')
+    plt.plot(time[:max_iter], potential.squeeze()[:max_iter], color=colors[-2], label='true potential')
+    learned_mechanical = latent_kinetic.squeeze()[:max_iter] + latent_potential.squeeze()[:max_iter]
+    mechanical = kinetic.squeeze()[:max_iter] + potential.squeeze()[:max_iter]
+
+    plt.plot(time[:max_iter], learned_mechanical, color=colors[2], linestyle='--', label='learned mechanical')
+    plt.plot(time[:max_iter], mechanical, color=colors[-3], linestyle='--', label='true mechanical')
+
     plt.xlabel(r'time [s]', fontsize=14)
-    plt.ylabel('normalized energy', fontsize=14)  # label the y axis
+    plt.ylabel('Energy', fontsize=14)  # label the y axis
+    plt.legend(fontsize=14, loc='upper right')  # add the legend (will default to 'best' location)
     plt.show()
     return 0
 
@@ -368,17 +478,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_pendulum_free_free.ini')
-    parser.add_argument('-e', '--emission-dim', type=int, default=13)
-    parser.add_argument('-ne', '--emission-layers', type=int, default=0)
-    parser.add_argument('-tr', '--transmission-dim', type=int, default=18)
-    parser.add_argument('-ph', '--potential-hidden', type=int, default=21)
-    parser.add_argument('-pl', '--potential-layers', type=int, default=4)
+    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
+    parser.add_argument('-e', '--emission-dim', type=int, default=14)
+    parser.add_argument('-ne', '--emission-layers', type=int, default=1)
+    parser.add_argument('-tr', '--transmission-dim', type=int, default=36)
+    parser.add_argument('-ph', '--potential-hidden', type=int, default=54)
+    parser.add_argument('-pl', '--potential-layers', type=int, default=0)
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=1)
     parser.add_argument('-ord', '--integrator-order', type=int, default=2)
     parser.add_argument('--dissipative', action='store_true')
-    parser.add_argument('-dt', '--dt', type=float, default=0.1)
+    parser.add_argument('-dt', '--dt', type=float, default=0.01)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=1)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
