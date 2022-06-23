@@ -1,5 +1,5 @@
 #!/bin/bash
-python gen_config.py -rp "$PWD" -type free -ext free -dynamics linear -ndof 3 -noise 0.30 -n_iter 500 \
+python gen_config.py -rp "$PWD" -type free -ext free -dynamics linear -ndof 3 -noise 10 -n_iter 500 -select partial\
 -l_x 0 -u_x 1 -l_y 0 -u_y 1
 python simulation.py --root-path "$PWD" --config-path "config/3springmass_linear_free_free.ini"
 python train.py --root-path "$PWD" --config-path "config/3springmass_linear_free_free.ini" \
