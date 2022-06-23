@@ -70,8 +70,8 @@ def main(cfg):
         filep.write("Observations = " + ",".join(observables) + "\n")
         # higher orders have lower noise, assumes several of different orders
         filep.write("Noise = " + ",".join(
-            [str(cfg.noise)] * (len(observables) // 2) +
-            [str(cfg.noise // 2)] * (len(observables) // 2)) +
+            [str(cfg.noise // 2)] * (len(observables) // 2) +
+            [str(cfg.noise)] * (len(observables) // 2)) +
                     "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
