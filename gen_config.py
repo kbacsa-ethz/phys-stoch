@@ -40,7 +40,6 @@ def main(cfg):
         observables = random.sample(observables, int(len(observables) * 0.75))
     if cfg.select == "partial":
         observables = [observables[0], observables[2*cfg.ndof]]
-        pass
     else:
         observables = observables[:cfg.ndof] + observables[2*cfg.ndof:]
 
@@ -69,7 +68,11 @@ def main(cfg):
         filep.write("Upper_xdot = {}\n".format(cfg.u_y))
         filep.write("Iterations = {}\n".format(cfg.n_iter))
         filep.write("Observations = " + ",".join(observables) + "\n")
-        filep.write("Noise = " + ",".join([str(cfg.noise)] * 2 * cfg.ndof) + "\n")
+        # higher orders have lower noise, assumes several of different orders
+        filep.write("Noise = " + ",".join(
+            [str(cfg.noise)] * (len(observables) // 2) +
+            [str(cfg.noise // 2)] * (len(observables) // 2)) +
+                    "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
         filep.write("Delta = 0.1\n")
@@ -96,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('-l_y', type=float, default=1e-6)
     parser.add_argument('-u_x', type=float, default=1e-6)
     parser.add_argument('-u_y', type=float, default=1e-6)
-    parser.add_argument('-noise', type=float, default=0.15)
+    parser.add_argument('-noise', type=float, default=10)
     parser.add_argument('-lk', action='store_true')
     args = parser.parse_args()
 

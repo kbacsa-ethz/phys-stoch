@@ -6,6 +6,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.signal
 from tqdm import tqdm
 
 import scipy.signal as signal
@@ -105,7 +106,8 @@ def main(ag, cfg):
 
         exp_amp = force_amp * (0.25 + np.random.random())
         exp_freq = force_freq * (0.25 + np.random.random())
-        case = random.random() < 0.5
+        random_number = random.random()
+        case = random_number < 0.5
         for dof in force_dof:
             if dof == 0:
                 shift = 0
@@ -125,7 +127,7 @@ def main(ag, cfg):
                 trap_force[trap_force > exp_amp] = exp_amp
                 force_input[dof, :] = trap_force
             elif force_type == 'road':
-                if case:
+                if not case:
                     force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift,
                                                                         width=0.5) + exp_amp / 2
                 else:
@@ -169,8 +171,13 @@ def main(ag, cfg):
 
         obs = np.zeros([state.shape[0], len(obs_idx)])
         for i, idx in enumerate(obs_idx):
-            obs[:, i] = state[:, idx] + np.random.randn(state.shape[0]) * obs_noise[i]
-
+            state_signal = scipy.signal.detrend(state[:, idx])
+            signal_power = np.mean(state_signal ** 2)
+            signal_power_dB = 10 * np.log10(signal_power)
+            noise_dB = signal_power_dB - obs_noise[i]
+            noise_watt = 10 ** (noise_dB/10)
+            noise = np.random.normal(0, np.sqrt(noise_watt), state.shape[0])
+            obs[:, i] = state[:, i] + noise
 
         """
         import matplotlib.pyplot as plt
