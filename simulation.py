@@ -177,16 +177,17 @@ def main(ag, cfg):
             noise_dB = signal_power_dB - obs_noise[i]
             noise_watt = 10 ** (noise_dB/10)
             noise = np.random.normal(0, np.sqrt(noise_watt), state.shape[0])
-            obs[:, i] = state[:, i] + noise
+            obs[:, i] = state[:, idx] + noise
 
         """
         import matplotlib.pyplot as plt
         plt.plot(obs[:, 0], label='front suspension')
-        plt.plot(obs[:, 1], label='axel')
-        plt.plot(obs[:, 2], label='rotation')
-        plt.plot(obs[:, 3], label='back suspension')
-        plt.plot(obs[:, 4], label='front seat')
-        plt.plot(obs[:, 5], label='back seat')
+        plt.plot(state[:, 0], label='front suspension')
+        #plt.plot(obs[:, 1], label='axel')
+        #plt.plot(obs[:, 2], label='rotation')
+        #plt.plot(obs[:, 3], label='back suspension')
+        #plt.plot(obs[:, 4], label='front seat')
+        #plt.plot(obs[:, 5], label='back seat')
         #plt.plot(force_input[0, :300], label='input force')
         plt.legend()
         plt.show()
@@ -214,7 +215,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
+    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
