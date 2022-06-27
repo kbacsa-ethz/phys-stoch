@@ -355,6 +355,7 @@ def train(cfg):
                                                                                                    i in
                                                                                                    range(z_dim // 2)]
                 obs_labels = [total_labels[i] for i in obs_idx]
+                """
                 fig = grid_plot(
                     x_axis=t_vec,
                     values=[Obs, observations],
@@ -368,6 +369,7 @@ def train(cfg):
                     debug=cfg.debug
                 )
                 experiment.log_figure(figure=fig, figure_name="observations_{:02d}".format(epoch))
+                """
 
                 fig = matrix_plot(
                     matrix=vae.emitter.hidden_to_loc.weight.detach().numpy(),
