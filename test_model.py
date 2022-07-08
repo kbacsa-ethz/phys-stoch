@@ -12,6 +12,7 @@ from dmm import DMM
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 import scipy.signal
+import matplotlib as mpl
 
 
 def test_model(cfg):
@@ -24,6 +25,11 @@ def test_model(cfg):
 
     # use gpu
     device = torch.device("cuda" if torch.cuda.is_available() and cfg.cuda else "cpu")
+
+    if cfg.headless:
+        mpl.use('Agg')  # if you are on a headless machine
+    else:
+        mpl.use('TkAgg')
 
     ckpt_folder = os.listdir(os.path.join(cfg.root_path, 'experiments', cfg.ckpt_path))[-1]
 
@@ -401,6 +407,7 @@ if __name__ == '__main__':
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--ckpt-path', type=str, default='3_springmass_linear_free_free')
     parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('--headless', action='store_true')
     args = parser.parse_args()
 
     test_model(args)
