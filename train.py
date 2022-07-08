@@ -31,12 +31,16 @@ API_KEY = "Bm8mJ7xbMDa77te70th8PNcT8"
 
 
 # saves the model and optimizer states to disk
-def save_checkpoint(model, optim, epoch, loss, save_path):
+def save_checkpoint(model, state_mu, state_sig, obs_mu, obs_sig, optim, epoch, loss, save_path):
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optim.get_state(),
         'loss': loss,
+        'state_mu': state_mu,
+        'state_sig': state_sig,
+        'obs_mu': obs_mu,
+        'obs_sig': obs_sig,
     }, os.path.join(save_path, 'checkpoint.pth'))
 
 
@@ -170,7 +174,7 @@ def train(cfg):
         encoder = SymplecticODEEncoder(input_dim, z_dim, cfg.potential_hidden, cfg.potential_layers,
                                        non_linearity='relu', batch_first=True,
                                        rnn_layers=cfg.encoder_layers, dropout=cfg.encoder_dropout_rate,
-                                       order=cfg.integrator_order, dissipative=cfg.dissipative,
+                                       order=cfg.integrator_order, dissipative=True if cfg.dissipative == 'dissipative' else False,
                                        learn_kinetic=cfg.learn_kinetic,
                                        dt=cfg.dt, discretization=cfg.discretization)
     else:
@@ -245,7 +249,7 @@ def train(cfg):
                 val_epoch_loss /= len(val_dataset)
                 experiment.log_metric("validation_loss", val_epoch_loss, step=global_step)
                 print("Mean validation loss at epoch {} is {}".format(epoch, val_epoch_loss))
-                save_checkpoint(vae, svi.optim, epoch, val_epoch_loss, save_path)
+                save_checkpoint(vae, states_mean, states_std, obs_mean, obs_std, svi.optim, epoch, val_epoch_loss, save_path)
                 experiment.log_model(model_name, os.path.join(save_path, "checkpoint.pth"), overwrite=True)
 
                 # Zhilu plot
@@ -393,7 +397,7 @@ def train(cfg):
                     n_len = cfg.seq_len * 10
                     sample_obs = sample['obs'][:, : n_len + 1, :].float()
                     sample_obs = sample_obs.to(device)
-                    Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs)
+                    Z, Z_gen, Z_gen_scale, Obs, Obs_scale = vae.reconstruction(sample_obs, 1)
                     Obs = Obs.detach() * obs_std + obs_mean
                     Obs_scale = Obs_scale.detach() * obs_std + obs_mean
                     ground_truth = sample['state'][:, : n_len, obs_idx].float()
@@ -417,7 +421,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
+    parser.add_argument('--config-path', type=str, default='config/2_springmass_duffing_free_free.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)
@@ -426,8 +430,8 @@ if __name__ == '__main__':
     parser.add_argument('-tenc', '--encoder-type', type=str, default="symplectic_node")
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-ord', '--integrator-order', type=int, default=2)
-    parser.add_argument('--dissipative', action='store_true')
-    parser.add_argument('-dt', '--dt', type=float, default=0.01)
+    parser.add_argument('--dissipative', type=str, default="free")
+    parser.add_argument('-dt', '--dt', type=float, default=0.1)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=1)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)

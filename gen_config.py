@@ -8,7 +8,6 @@ np.random.seed(42)
 random.seed(42)
 
 
-
 def main(cfg):
 
     # random masses between 0 and 2
@@ -36,17 +35,11 @@ def main(cfg):
     k_string = ",".join(list(map(str, k.flatten())))
     c_string = ",".join(list(map(str, c.flatten())))
 
-    observables = list(map(str, range(3 * cfg.ndof)))
-    if cfg.select == "random":
-        observables = random.sample(observables, int(len(observables) * 0.75))
-    if cfg.select == "partial":
-        observables = [observables[0], observables[2*cfg.ndof]]
-    else:
-        observables = observables[:cfg.ndof] + observables[2*cfg.ndof:]
+    observables = cfg.select
 
-    with open(os.path.join(args.rp, "config", "{}springmass_{}_{}_{}.ini".format(cfg.ndof, cfg.dynamics, cfg.ext, cfg.type)), "w") as filep:
+    with open(os.path.join(args.rp, "config", "{}_{}_{}_{}_{}.ini".format(cfg.ndof, cfg.sys, cfg.dynamics, cfg.ext, cfg.type)), "w") as filep:
         filep.write("[System]\n")
-        filep.write("Name = {}springmass_{}_{}\n".format(cfg.ndof, cfg.dynamics, cfg.type))
+        filep.write("Name = {}_springmass_{}_{}_{}\n".format(cfg.ndof, cfg.dynamics, cfg.ext, cfg.type))
         filep.write("M = " + m_string + "\n")
         filep.write("C = " + c_string + "\n")
         filep.write("K = " + k_string + "\n")
@@ -68,12 +61,21 @@ def main(cfg):
         filep.write("Lower_xdot = {}\n".format(cfg.l_y))
         filep.write("Upper_xdot = {}\n".format(cfg.u_y))
         filep.write("Iterations = {}\n".format(cfg.n_iter))
-        filep.write("Observations = " + ",".join(observables) + "\n")
+        filep.write("Observations = " + observables + "\n")
         # higher orders have lower noise, assumes several of different orders
-        filep.write("Noise = " + ",".join(
-            [str(cfg.noise // 2)] * (len(observables) // 2) +
-            [str(cfg.noise)] * (len(observables) // 2)) +
-                    "\n")
+
+        obs_idx = [int(x) for x in observables.split(',')]
+
+        noise_list = []
+        for idx in obs_idx:
+            if idx < cfg.ndof:
+                noise_list += [str(cfg.noise/2)]
+            elif idx < 2 * cfg.ndof:
+                noise_list += [str(cfg.noise/1.5)]
+            else:
+                noise_list += [str(cfg.noise)]
+
+        filep.write("Noise = " + ",".join(noise_list) + "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
         filep.write("Delta = 0.1\n")
@@ -90,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('-type', type=str, default='free')
     parser.add_argument('-n_iter', type=int, default=50)
     parser.add_argument('-dynamics', type=str, default='duffing')
+    parser.add_argument('-sys', type=str, default='springmass')
     parser.add_argument('-ext', type=str, default='free')
     parser.add_argument('-amplitude', type=float, default=1.0)
     parser.add_argument('-freq', type=float, default=3)

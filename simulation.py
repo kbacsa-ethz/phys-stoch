@@ -177,10 +177,10 @@ def main(ag, cfg):
             noise_dB = signal_power_dB - obs_noise[i]
             noise_watt = 10 ** (noise_dB/10)
             noise = np.random.normal(0, np.sqrt(noise_watt), state.shape[0])
+            noise = signal.detrend(noise)  # just in case
             obs[:, i] = state[:, idx] + noise
 
         """
-        import matplotlib.pyplot as plt
         plt.plot(obs[:, 0], label='front suspension')
         plt.plot(state[:, 0], label='front suspension')
         #plt.plot(obs[:, 1], label='axel')
@@ -205,7 +205,7 @@ def main(ag, cfg):
     np.save(os.path.join(save_path, 'obs.npy'), obs_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'obs_param.npy'),
             np.concatenate([obs_tensor.mean(axis=(0, 1)), obs_tensor.std(axis=(0, 1))]))
-    #np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
+    np.save(os.path.join(save_path, 'force.npy'), force_tensor, allow_pickle=True)
     np.save(os.path.join(save_path, 'energy.npy'), energy_tensor, allow_pickle=True)
 
     return 0
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/2springmass_duffing_free_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))
