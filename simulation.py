@@ -56,8 +56,8 @@ def main(ag, cfg):
     np.random.seed(seed)
     random.seed(seed)
 
-    experiment_tree = data_path_from_config(cfg)
-    save_path = os.path.join(ag.root_path, 'data', system_type)
+    folder_name = os.path.basename(ag.config_path).split('.')[0]
+    save_path = os.path.join(ag.root_path, 'data', folder_name)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
     tics = np.linspace(0., t_max, num=int(t_max / dt), endpoint=False)
@@ -118,7 +118,7 @@ def main(ag, cfg):
                 force_input[dof, :] = (force_amp * (0.25 + np.random.random())) * force_fct(impulse_shift)
             elif force_type == "sinusoidal":
                 force_input[dof, :] = (force_amp * np.random.random()) * force_fct(
-                    2 * np.pi * (force_freq * np.random.random()) * tics * dt)
+                    2 * np.pi * (force_freq * np.random.random()) * tics)
             elif force_type == 'sineroad':
                 force_input[dof, :] = exp_amp / 2 * signal.sawtooth(2 * np.pi * exp_freq * tics - shift, width=0.5) + exp_amp / 2
             elif force_type == 'traproad':
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     # parse config
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
-    parser.add_argument('--config-path', type=str, default='config/halfcar.ini')
+    parser.add_argument('--config-path', type=str, default='config/2_springmass_duffing_free_free_0,1,4,5.ini')
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(os.path.join(args.root_path, args.config_path))

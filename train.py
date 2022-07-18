@@ -67,7 +67,7 @@ def train(cfg):
     config = configparser.ConfigParser()
     config.read(os.path.join(cfg.root_path, cfg.config_path))
 
-    exp_name = data_path_from_config(config)
+    exp_name = os.path.basename(cfg.config_path).split('.')[0]
     obs_idx = list(map(int, config['Simulation']['Observations'].split(',')))
 
     # create experiment directory and save config
@@ -421,7 +421,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="parse args")
     parser.add_argument('--root-path', type=str, default='.')
     parser.add_argument('--data-dir', type=str, default='data')
-    parser.add_argument('--config-path', type=str, default='config/2_springmass_duffing_free_free.ini')
+    parser.add_argument('--config-path', type=str, default='config/2_springmass_duffing_free_free_0,1,4,5.ini')
     parser.add_argument('-e', '--emission-dim', type=int, default=16)
     parser.add_argument('-ne', '--emission-layers', type=int, default=0)
     parser.add_argument('-tr', '--transmission-dim', type=int, default=32)

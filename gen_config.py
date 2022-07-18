@@ -37,7 +37,7 @@ def main(cfg):
 
     observables = cfg.select
 
-    with open(os.path.join(args.rp, "config", "{}_{}_{}_{}_{}.ini".format(cfg.ndof, cfg.sys, cfg.dynamics, cfg.ext, cfg.type)), "w") as filep:
+    with open(os.path.join(args.rp, "config", "{}_{}_{}_{}_{}_{}.ini".format(cfg.ndof, cfg.sys, cfg.dynamics, cfg.ext, cfg.type, cfg.select)), "w") as filep:
         filep.write("[System]\n")
         filep.write("Name = {}_springmass_{}_{}_{}\n".format(cfg.ndof, cfg.dynamics, cfg.ext, cfg.type))
         filep.write("M = " + m_string + "\n")
@@ -94,10 +94,10 @@ if __name__ == '__main__':
     parser.add_argument('-dynamics', type=str, default='duffing')
     parser.add_argument('-sys', type=str, default='springmass')
     parser.add_argument('-ext', type=str, default='free')
-    parser.add_argument('-amplitude', type=float, default=1.0)
+    parser.add_argument('-amplitude', type=float, default=3.0)
     parser.add_argument('-freq', type=float, default=3)
     parser.add_argument('-shift', type=int, default=100)
-    parser.add_argument('-select', type=str, default='default')
+    parser.add_argument('-select', type=str, default='0,1,4,5')
     parser.add_argument('-ndof', type=int, default=2)
     parser.add_argument('-l_x', type=float, default=-2)
     parser.add_argument('-l_y', type=float, default=-2)
