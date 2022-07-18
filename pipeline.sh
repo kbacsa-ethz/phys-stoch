@@ -58,19 +58,19 @@ echo "Configuration generated"
 
 echo ""
 echo "----------GENERATING DATASET----------"
-echo "Simulating config/${ndof}_${sys}_${dynamics}_${ext}_${disp}.ini"
-python simulation.py --root-path "$PWD" --config-path "config/${ndof}_${sys}_${dynamics}_${ext}_${disp}.ini"
+echo "Simulating config/${ndof}_${sys}_${dynamics}_${ext}_${disp}_${select}.ini"
+python simulation.py --root-path "$PWD" --config-path "config/${ndof}_${sys}_${dynamics}_${ext}_${disp}_${select}.ini"
 
 echo ""
 echo "----------TRAINING----------"
-python train.py --root-path "$PWD" --config-path "config/${ndof}_${sys}_${dynamics}_${ext}_${disp}.ini" \
+python train.py --root-path "$PWD" --config-path "config/${ndof}_${sys}_${dynamics}_${ext}_${disp}_${select}.ini" \
  -e $emi -ne $ne -tr $trans -ph $poth -pl $potl -nenc $nenc \
- --dissipative $disp \
+ --dissipative $disp --headless --cuda \
  -sq 50 -n 1 -wd 0.01 \
  -ord 2 \
 
 
-echo ""
-echo "----------TESTING----------"
-python test_model.py --root-path "$PWD" --ckpt-path "${ndof}_${sys}_${dynamics}_${ext}_${disp}"
+#echo ""
+#echo "----------TESTING----------"
+#python test_model.py --root-path "$PWD" --ckpt-path "${ndof}_${sys}_${dynamics}_${ext}_${disp}"
 
