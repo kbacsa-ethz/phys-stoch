@@ -78,7 +78,7 @@ def main(cfg):
         filep.write("Noise = " + ",".join(noise_list) + "\n")
         filep.write("Absolute = 1.0e-8\n")
         filep.write("Relative = 1.0e-6\n")
-        filep.write("Delta = 0.1\n")
+        filep.write("Delta = 0.01\n")
         filep.write("Time = 60.\n")
     return 0
 

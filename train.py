@@ -431,7 +431,7 @@ if __name__ == '__main__':
     parser.add_argument('-nenc', '--encoder-layers', type=int, default=2)
     parser.add_argument('-ord', '--integrator-order', type=int, default=2)
     parser.add_argument('--dissipative', type=str, default="free")
-    parser.add_argument('-dt', '--dt', type=float, default=0.1)
+    parser.add_argument('-dt', '--dt', type=float, default=0.01)
     parser.add_argument('-disc', '--discretization', type=int, default=3)
     parser.add_argument('-n', '--num-epochs', type=int, default=1)
     parser.add_argument('-te', '--tuning-epochs', type=int, default=10)
