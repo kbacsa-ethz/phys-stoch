@@ -1,0 +1,115 @@
+argh==0.26.2
+argon2-cffi @ file:///opt/conda/conda-bld/argon2-cffi_1645000214183/work
+argon2-cffi-bindings @ file:///tmp/build/80754af9/argon2-cffi-bindings_1644569684262/work
+asn1crypto==1.4.0
+asttokens @ file:///opt/conda/conda-bld/asttokens_1646925590279/work
+attrs @ file:///tmp/build/80754af9/attrs_1620827162558/work
+backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
+bleach @ file:///opt/conda/conda-bld/bleach_1641577558959/work
+certifi @ file:///croot/certifi_1665076670883/work/certifi
+cffi @ file:///tmp/build/80754af9/cffi_1625807838443/work
+chardet @ file:///tmp/build/80754af9/chardet_1607706746162/work
+click==8.0.3
+configobj==5.0.6
+configparser @ file:///tmp/build/80754af9/configparser_1614614799251/work
+cryptography==3.3.2
+cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+debugpy @ file:///tmp/build/80754af9/debugpy_1637091796427/work
+decorator @ file:///tmp/build/80754af9/decorator_1621259047763/work
+defusedxml @ file:///tmp/build/80754af9/defusedxml_1615228127516/work
+docker-pycreds @ file:///Users/ktietz/demo/mc3/conda-bld/docker-pycreds_1630654474270/work
+dulwich==0.20.23
+entrypoints==0.3
+everett==1.0.3
+executing @ file:///opt/conda/conda-bld/executing_1646925071911/work
+future==0.18.2
+gitdb @ file:///tmp/build/80754af9/gitdb_1617117951232/work
+GitPython @ file:///tmp/build/80754af9/gitpython_1624609474443/work
+gmpy2 @ file:///tmp/build/80754af9/gmpy2_1645455532332/work
+gql==0.1.0
+graphql-core @ file:///home/conda/feedstock_root/build_artifacts/graphql-core_1617927569613/work
+h5py==3.6.0
+idna==3.1
+importlib-metadata @ file:///tmp/build/80754af9/importlib-metadata_1648562408398/work
+jedi @ file:///tmp/build/80754af9/jedi_1644315233700/work
+Jinja2 @ file:///tmp/build/80754af9/jinja2_1624781299557/work
+jsonschema @ file:///Users/ktietz/demo/mc3/conda-bld/jsonschema_1630511932244/work
+kiwisolver @ file:///home/sat_bot/base/conda-bld/kiwisolver_1624685076721/work
+lmdb @ file:///home/conda/feedstock_root/build_artifacts/python-lmdb_1644189490626/work
+lvm-read==1.20
+MarkupSafe @ file:///tmp/build/80754af9/markupsafe_1621528148836/work
+matplotlib==3.1.2
+matplotlib-inline @ file:///tmp/build/80754af9/matplotlib-inline_1628242447089/work
+mistune==0.8.4
+mkl-fft==1.3.1
+mkl-random==1.2.2
+mkl-service==2.4.0
+mpmath==1.2.1
+nbclient @ file:///tmp/build/80754af9/nbclient_1645431659072/work
+nbconvert @ file:///opt/conda/conda-bld/nbconvert_1641309195684/work
+nbformat @ file:///tmp/build/80754af9/nbformat_1617383369282/work
+nest-asyncio @ file:///tmp/build/80754af9/nest-asyncio_1613680548246/work
+numpy @ file:///tmp/build/80754af9/numpy_and_numpy_base_1634095647912/work
+nvidia-ml-py3 @ file:///tmp/build/80754af9/nvidia-ml_1621428042568/work
+opt-einsum==3.3.0
+packaging @ file:///home/sat_bot/base/conda-bld/packaging_1631713456091/work
+pandas==1.2.5
+pandocfilters @ file:///opt/conda/conda-bld/pandocfilters_1643405455980/work
+parso @ file:///opt/conda/conda-bld/parso_1641458642106/work
+pathtools @ file:///Users/ktietz/demo/mc3/conda-bld/pathtools_1629713893697/work
+pexpect @ file:///tmp/build/80754af9/pexpect_1605563209008/work
+pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
+prometheus-client @ file:///opt/conda/conda-bld/prometheus_client_1643788673601/work
+promise @ file:///tmp/build/80754af9/promise_1614011636525/work
+prompt-toolkit @ file:///tmp/build/80754af9/prompt-toolkit_1633440160888/work
+protobuf==3.14.0
+psutil @ file:///tmp/build/80754af9/psutil_1612298023621/work
+ptyprocess @ file:///tmp/build/80754af9/ptyprocess_1609355006118/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl
+pure-eval @ file:///opt/conda/conda-bld/pure_eval_1646925070566/work
+pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+Pygments @ file:///opt/conda/conda-bld/pygments_1644249106324/work
+pyOpenSSL @ file:///tmp/build/80754af9/pyopenssl_1635333100036/work
+pyparsing @ file:///tmp/build/80754af9/pyparsing_1635766073266/work
+pyro-api==0.1.2
+pyro-ppl==1.6.0
+pyrsistent @ file:///tmp/build/80754af9/pyrsistent_1636110947380/work
+PySocks @ file:///tmp/build/80754af9/pysocks_1605305779399/work
+python-dateutil==2.8.2
+pytz==2021.3
+PyYAML==6.0
+pyzmq==18.1.1
+qtconsole @ file:///opt/conda/conda-bld/qtconsole_1643819126524/work
+QtPy @ file:///opt/conda/conda-bld/qtpy_1643087291789/work
+requests==2.25.1
+requests-toolbelt==0.9.1
+scipy @ file:///tmp/build/80754af9/scipy_1641555001653/work
+seaborn @ file:///tmp/build/80754af9/seaborn_1629307859561/work
+selenium @ file:///tmp/build/80754af9/selenium_1614267795165/work
+semantic-version==2.8.5
+Send2Trash @ file:///tmp/build/80754af9/send2trash_1632406701022/work
+sentry-sdk @ file:///home/conda/feedstock_root/build_artifacts/sentry-sdk_1613665802419/work
+shortuuid @ file:///home/conda/feedstock_root/build_artifacts/shortuuid_1610439219845/work
+sip==4.19.13
+six @ file:///home/sat_bot/base/conda-bld/six_1627693436989/work
+smmap @ file:///tmp/build/80754af9/smmap_1611694433573/work
+stack-data @ file:///opt/conda/conda-bld/stack_data_1646927590127/work
+subprocess32 @ file:///tmp/build/80754af9/subprocess32_1602000156065/work
+sympy @ file:///tmp/build/80754af9/sympy_1647853655943/work
+terminado @ file:///tmp/build/80754af9/terminado_1644322581811/work
+testpath @ file:///tmp/build/80754af9/testpath_1624638946665/work
+thop @ git+https://github.com/Lyken17/pytorch-OpCounter.git@14ffb094651ce62b22f4fa2d75dbc9c488f9364c
+torch==1.8.1
+tornado @ file:///tmp/build/80754af9/tornado_1606942300299/work
+tqdm==4.60.0
+traitlets @ file:///tmp/build/80754af9/traitlets_1636710298902/work
+typing-extensions @ file:///tmp/build/80754af9/typing_extensions_1611751222202/work
+urllib3==1.26.6
+wandb @ file:///home/conda/feedstock_root/build_artifacts/wandb_1614093034584/work
+watchdog @ file:///tmp/build/80754af9/watchdog_1606939093881/work
+wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
+webencodings==0.5.1
+websocket-client==1.0.1
+widgetsnbextension @ file:///tmp/build/80754af9/widgetsnbextension_1645009353553/work
+wrapt==1.12.1
+wurlitzer==2.1.0
+zipp @ file:///tmp/build/80754af9/zipp_1633618647012/work
