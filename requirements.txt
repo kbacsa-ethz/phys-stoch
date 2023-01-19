@@ -98,7 +98,7 @@ sympy @ file:///tmp/build/80754af9/sympy_1647853655943/work
 terminado @ file:///tmp/build/80754af9/terminado_1644322581811/work
 testpath @ file:///tmp/build/80754af9/testpath_1624638946665/work
 thop @ git+https://github.com/Lyken17/pytorch-OpCounter.git@14ffb094651ce62b22f4fa2d75dbc9c488f9364c
-torch==1.8.1
+torch==1.13.1
 tornado @ file:///tmp/build/80754af9/tornado_1606942300299/work
 tqdm==4.60.0
 traitlets @ file:///tmp/build/80754af9/traitlets_1636710298902/work
