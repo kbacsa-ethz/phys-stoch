@@ -1,0 +1,8 @@
+.idea
+data
+__pycache__
+config/
+saved_models/
+sweeps/
+*.npy
+experiments

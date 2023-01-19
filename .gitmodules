@@ -1,0 +1,4 @@
+[submodule "torchdiffeq"]
+	path = torchdiffeq
+	url = https://github.com/kbacsa-ethz/torchdiffeq.git
+	branch = develop
