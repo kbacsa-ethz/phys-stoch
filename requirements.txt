@@ -22,7 +22,7 @@ dulwich==0.20.23
 entrypoints==0.3
 everett==1.0.3
 executing @ file:///opt/conda/conda-bld/executing_1646925071911/work
-future==0.18.2
+future==0.18.3
 gitdb @ file:///tmp/build/80754af9/gitdb_1617117951232/work
 GitPython @ file:///tmp/build/80754af9/gitpython_1624609474443/work
 gmpy2 @ file:///tmp/build/80754af9/gmpy2_1645455532332/work
