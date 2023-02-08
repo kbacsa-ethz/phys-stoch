@@ -12,7 +12,7 @@ chardet @ file:///tmp/build/80754af9/chardet_1607706746162/work
 click==8.0.3
 configobj==5.0.6
 configparser @ file:///tmp/build/80754af9/configparser_1614614799251/work
-cryptography==3.3.2
+cryptography==39.0.1
 cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
 debugpy @ file:///tmp/build/80754af9/debugpy_1637091796427/work
 decorator @ file:///tmp/build/80754af9/decorator_1621259047763/work
